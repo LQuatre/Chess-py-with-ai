@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chess Board</title>
+    <!-- Bootstrap CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --white-color: #f0d9b5;
+        --black-color: #b58863;
+        --hover-color: #e0c68c;
+        --active-color: #f7c36c;
+        --border-color: #6d4c41;
+        --text-color: #2c3e50;
+        --background-color: #f8f9fa;
+        --selected-color: #7fc97f;
+        --valid-move-color: rgba(0, 128, 255, 0.4);
+        --arrow-color: rgba(255, 0, 0, 0.7);
+      }
+
+      body {
+        font-family: "Poppins", sans-serif;
+        background-color: var(--background-color);
+        color: var(--text-color);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+
+      .page-title {
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        color: var(--text-color);
+        position: relative;
+        display: inline-block;
+      }
+
+      .page-title::after {
+        content: "";
+        position: absolute;
+        bottom: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 60px;
+        height: 3px;
+        background-color: var(--black-color);
+        border-radius: 3px;
+      }
+
+      .board-container {
+        padding: 1.5rem;
+        background-color: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      .chess-board {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        grid-template-rows: repeat(8, 1fr);
+        border: 3px solid var(--border-color);
+        border-radius: 4px;
+        max-width: 100%;
+        aspect-ratio: 1;
+        margin: 0 auto;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+      }
+
+      .chess-board div {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        font-weight: 500;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .white {
+        background-color: var(--white-color);
+      }
+
+      .black {
+        background-color: var(--black-color);
+      }
+
+      .selected {
+        background-color: var(--selected-color) !important;
+      }
+
+      .valid-move {
+        position: relative;
+      }
+
+      .valid-move::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background-color: var(--valid-move-color);
+        z-index: 1;
+      }
+
+      .valid-move.has-piece::before {
+        width: 100%;
+        height: 100%;
+        border-radius: 0;
+        border: 4px solid var(--valid-move-color);
+        background-color: transparent;
+      }
+
+      .chess-board div:hover {
+        background-color: var(--hover-color);
+        transform: scale(1.03);
+        z-index: 2;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      .chess-board div:active {
+        background-color: var(--active-color);
+        transform: scale(0.98);
+      }
+
+      .game-info {
+        margin-top: 20px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .message-box {
+        margin-top: 15px;
+        min-height: 50px;
+        padding: 10px;
+        border-radius: 8px;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+      }
+
+      /* Style pour la boîte de dialogue de promotion */
+      .promotion-dialog {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+        text-align: center;
+      }
+
+      .promotion-options {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        margin-top: 15px;
+      }
+
+      .promotion-option {
+        cursor: pointer;
+        font-size: 2.5rem;
+        padding: 10px;
+        border-radius: 8px;
+        transition: all 0.2s;
+      }
+
+      .promotion-option:hover {
+        background-color: var(--hover-color);
+        transform: scale(1.1);
+      }
+
+      .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 999;
+      }
+
+      /* Styles pour les flèches */
+      .arrow {
+        position: absolute;
+        pointer-events: none;
+        z-index: 10;
+      }
+
+      .arrow-line {
+        stroke: var(--arrow-color);
+        stroke-width: 8;
+        fill: none;
+      }
+
+      .arrow-head {
+        fill: var(--arrow-color);
+      }
+
+      @media (max-width: 576px) {
+        .chess-board div {
+          font-size: 1.2rem;
+        }
+
+        .board-container {
+          padding: 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container text-center py-4">
+      <h1 class="page-title">Chess Board</h1>
+
+      <div class="game-info mb-3">
+        <h3>Tour: <span id="current-turn">{{ turn }}</span></h3>
+        {% if player_color %}
+        <div class="alert alert-info">
+          Vous jouez les pièces <strong>{{ player_color }}</strong>
+        </div>
+        {% endif %} {% if game_over %}
+        <div class="alert alert-success">
+          Partie terminée! {% if winner %}Gagnant: {{ winner }}{% else %}Match
+          nul{% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="game-id mb-3">
+        <p>ID de la partie: <strong>{{ game_id }}</strong></p>
+        <p>
+          Partagez cet ID avec votre adversaire pour qu'il puisse rejoindre la
+          partie.
+        </p>
+      </div>
+
+      <!-- Overlay pour la promotion -->
+      <div class="overlay" id="overlay"></div>
+
+      <!-- Boîte de dialogue pour la promotion des pions -->
+      <div class="promotion-dialog" id="promotion-dialog">
+        <h3>Choisissez une pièce pour la promotion</h3>
+        <div class="promotion-options">
+          <div class="promotion-option" data-piece="Q">♛</div>
+          <div class="promotion-option" data-piece="R">♜</div>
+          <div class="promotion-option" data-piece="B">♝</div>
+          <div class="promotion-option" data-piece="N">♞</div>
+        </div>
+      </div>
+
+      <div class="board-container">
+        <div class="chess-board" id="chessboard" style="position: relative">
+          <!-- SVG container pour les flèches -->
+          <svg
+            id="arrows-container"
+            style="
+              position: absolute;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              pointer-events: none;
+              z-index: 5;
+            "
+          ></svg>
+
+          {% for row_index in range(8) %} {% for col_index in range(8) %}
+          <div
+            class="{{ 'white' if ((row_index + col_index) % 2 == 0) else 'black' }}"
+            data-row="{{ row_index }}"
+            data-col="{{ col_index }}"
+            data-position="{{ 'abcdefgh'[col_index] }}{{ 8 - row_index }}"
+          >
+            {% if board and row_index < board|length and col_index <
+            board[row_index]|length %} {{ board[row_index][col_index] }} {%
+            endif %}
+          </div>
+          {% endfor %} {% endfor %}
+        </div>
+      </div>
+
+      <div class="message-box mt-3" id="message-box">
+        <!-- Les messages du jeu seront affichés ici -->
+      </div>
+
+      <div class="mt-3">
+        <a href="/reset-game/{{ game_id }}" class="btn btn-warning"
+          >Nouvelle partie</a
+        >
+        <a href="/available-games" class="btn btn-success"
+          >Rejoindre une autre partie</a
+        >
+        <a href="/" class="btn btn-secondary">Retour à l'accueil</a>
+      </div>
+    </div>
+
+    <!-- JavaScript pour gérer le jeu -->
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        // Fonction pour rafraîchir l'état du jeu périodiquement
+        function refreshGameState() {
+          fetch("/game-state?game_id={{ game_id }}")
+            .then((response) => response.json())
+            .then((data) => {
+              updateBoard(data);
+            })
+            .catch((error) => {
+              console.error("Error refreshing game state:", error);
+            });
+        }
+
+        // Rafraîchir l'état du jeu toutes les 3 secondes
+        setInterval(refreshGameState, 3000);
+        let selectedSquare = null;
+        const chessboard = document.getElementById("chessboard");
+        const messageBox = document.getElementById("message-box");
+        const currentTurnDisplay = document.getElementById("current-turn");
+        const promotionDialog = document.getElementById("promotion-dialog");
+        const overlay = document.getElementById("overlay");
+        const promotionOptions = document.querySelectorAll(".promotion-option");
+        const arrowsContainer = document.getElementById("arrows-container");
+
+        // Variables pour le dessin des flèches
+        let isDrawingArrow = false;
+        let arrowStartSquare = null;
+        let arrows = [];
+
+        // Ajouter des écouteurs d'événements pour les options de promotion
+        promotionOptions.forEach((option) => {
+          option.addEventListener("click", handlePromotionChoice);
+        });
+
+        // Sélectionner toutes les cases de l'échiquier et ajouter les écouteurs d'événements
+        const squares = document.querySelectorAll("#chessboard div");
+        squares.forEach((square) => {
+          square.addEventListener("click", handleSquareClick);
+
+          // Ajouter les écouteurs pour le dessin des flèches
+          square.addEventListener("mousedown", function (e) {
+            if (e.button === 2) {
+              // Clic droit
+              e.preventDefault();
+              console.log("Starting arrow from", square.dataset.position);
+              startArrowDraw(square);
+            }
+          });
+        });
+
+        // Désactiver le menu contextuel sur tout l'échiquier
+        chessboard.addEventListener("contextmenu", function (e) {
+          e.preventDefault();
+          return false;
+        });
+
+        // Ajouter des écouteurs pour le dessin des flèches
+        document.addEventListener("mousemove", function (e) {
+          if (isDrawingArrow && arrowStartSquare) {
+            // Optionnel: afficher un aperçu de la flèche pendant le dessin
+            console.log("Drawing arrow...");
+          }
+        });
+
+        document.addEventListener("mouseup", function (e) {
+          if (e.button === 2 && isDrawingArrow && arrowStartSquare) {
+            // Clic droit
+            const endSquare = findSquareUnderCursor(e);
+            if (endSquare) {
+              console.log("Drawing arrow to", endSquare.dataset.position);
+              if (endSquare !== arrowStartSquare) {
+                drawArrow(arrowStartSquare, endSquare);
+              } else {
+                // Si on relâche sur la même case, vérifier s'il y a une flèche à supprimer
+                const arrowToRemove = findArrowOnSquare(endSquare);
+                if (arrowToRemove) {
+                  console.log("Removing arrow", arrowToRemove.id);
+                  removeArrow(arrowToRemove);
+                }
+              }
+            }
+            isDrawingArrow = false;
+            arrowStartSquare = null;
+          }
+        });
+
+        function showPromotionDialog() {
+          promotionDialog.style.display = "block";
+          overlay.style.display = "block";
+        }
+
+        function hidePromotionDialog() {
+          promotionDialog.style.display = "none";
+          overlay.style.display = "none";
+        }
+
+        // Variable pour stocker le tour actuel
+        let currentTurn = "{{ turn }}";
+
+        function handleSquareClick(event) {
+          const clickedSquare = event.currentTarget;
+          const position = clickedSquare.dataset.position;
+
+          // Si aucune case n'est sélectionnée, sélectionner celle-ci
+          if (!selectedSquare) {
+            const pieceText = clickedSquare.textContent.trim();
+
+            // Vérifier si la case contient une pièce
+            if (pieceText === "") {
+              return; // Case vide, rien à faire
+            }
+
+            // Déterminer la couleur de la pièce (blanc ou noir)
+            // Les pièces blanches sont représentées par des caractères Unicode dans la plage 0x2654-0x2659
+            // Les pièces noires sont représentées par des caractères Unicode dans la plage 0x265A-0x265F
+            const pieceCode = pieceText.charCodeAt(0);
+            const pieceColor =
+              pieceCode >= 0x2654 && pieceCode <= 0x2659 ? "white" : "black";
+
+            // Vérifier si c'est le tour du joueur et si la pièce est de sa couleur
+            if (
+              pieceColor === currentTurn && // La pièce correspond au tour actuel
+              ("{{ player_color }}" === currentTurn ||
+                "{{ player_color }}" === "") // C'est le tour du joueur ou spectateur
+            ) {
+              selectedSquare = clickedSquare;
+              selectedSquare.classList.add("selected");
+
+              // Récupérer et afficher les mouvements valides
+              showValidMoves(position);
+            } else if (pieceColor !== currentTurn) {
+              messageBox.textContent = "Ce n'est pas le tour de cette pièce";
+            } else if (
+              "{{ player_color }}" !== currentTurn &&
+              "{{ player_color }}" !== ""
+            ) {
+              messageBox.textContent = "Ce n'est pas votre tour";
+            }
+          } else {
+            // Si une case est déjà sélectionnée, tenter de déplacer la pièce
+            const fromPosition = selectedSquare.dataset.position;
+            const toPosition = position;
+
+            // Désélectionner la case
+            selectedSquare.classList.remove("selected");
+
+            // Supprimer les indicateurs de mouvements valides
+            clearValidMoves();
+
+            // Si on clique sur la même case, annuler la sélection
+            if (fromPosition === toPosition) {
+              selectedSquare = null;
+              return;
+            }
+
+            // Envoyer la demande de mouvement au serveur
+            makeMove(fromPosition, toPosition);
+            selectedSquare = null;
+          }
+        }
+
+        // Fonction pour afficher les mouvements valides
+        function showValidMoves(position) {
+          fetch(`/valid-moves?position=${position}&game_id={{ game_id }}`)
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.success) {
+                // Marquer les cases où la pièce peut se déplacer
+                data.valid_moves.forEach((move) => {
+                  const square = document.querySelector(
+                    `[data-position="${move}"]`
+                  );
+                  if (square) {
+                    square.classList.add("valid-move");
+                    // Si la case contient une pièce, ajouter une classe spéciale
+                    if (square.textContent.trim() !== "") {
+                      square.classList.add("has-piece");
+                    }
+                  }
+                });
+              }
+            })
+            .catch((error) => {
+              console.error("Error fetching valid moves:", error);
+            });
+        }
+
+        // Fonction pour supprimer les indicateurs de mouvements valides
+        function clearValidMoves() {
+          document.querySelectorAll(".valid-move").forEach((square) => {
+            square.classList.remove("valid-move");
+            square.classList.remove("has-piece");
+          });
+        }
+
+        function makeMove(from, to) {
+          // Supprimer les indicateurs de mouvements valides
+          clearValidMoves();
+
+          // Supprimer toutes les flèches
+          clearAllArrows();
+
+          fetch("/move", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ from, to, game_id: "{{ game_id }}" }),
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.success) {
+                // Mettre à jour le plateau avec le nouvel état
+                updateBoard(data.game_state);
+
+                // Afficher le message
+                if (data.message) {
+                  messageBox.textContent = data.message;
+
+                  // Vérifier si le message contient "ÉCHEC ET MAT"
+                  if (
+                    data.message.includes("ÉCHEC ET MAT") ||
+                    data.message.includes("Échec et mat")
+                  ) {
+                    // Créer une notification plus visible
+                    const checkMateNotification = document.createElement("div");
+                    checkMateNotification.className = "alert alert-danger mt-3";
+                    checkMateNotification.style.fontSize = "1.5rem";
+                    checkMateNotification.style.fontWeight = "bold";
+                    checkMateNotification.textContent = data.message;
+
+                    // Insérer la notification avant la boîte de message
+                    messageBox.parentNode.insertBefore(
+                      checkMateNotification,
+                      messageBox
+                    );
+
+                    // Faire clignoter la notification
+                    let visible = true;
+                    const blinkInterval = setInterval(() => {
+                      checkMateNotification.style.visibility = visible
+                        ? "visible"
+                        : "hidden";
+                      visible = !visible;
+                    }, 500);
+
+                    // Arrêter le clignotement après 5 secondes
+                    setTimeout(() => {
+                      clearInterval(blinkInterval);
+                      checkMateNotification.style.visibility = "visible";
+                    }, 5000);
+                  }
+                }
+
+                // Vérifier s'il y a une promotion en attente
+                if (data.promotion_pending) {
+                  showPromotionDialog();
+                }
+              } else {
+                // Afficher l'erreur
+                messageBox.textContent =
+                  data.message || data.error || "Mouvement invalide";
+              }
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+              messageBox.textContent =
+                "Erreur de communication avec le serveur";
+            });
+        }
+
+        function handlePromotionChoice(event) {
+          const pieceType = event.currentTarget.dataset.piece;
+
+          // Envoyer la demande de promotion au serveur
+          fetch("/promote", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              piece_type: pieceType,
+              game_id: "{{ game_id }}",
+            }),
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.success) {
+                // Mettre à jour le plateau avec le nouvel état
+                updateBoard(data.game_state);
+                hidePromotionDialog();
+              } else {
+                // Afficher l'erreur
+                messageBox.textContent = data.error || "Erreur de promotion";
+                hidePromotionDialog();
+              }
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+              messageBox.textContent =
+                "Erreur de communication avec le serveur";
+              hidePromotionDialog();
+            });
+        }
+
+        // Fonctions pour gérer le dessin des flèches
+        function startArrowDraw(square) {
+          isDrawingArrow = true;
+          arrowStartSquare = square;
+        }
+
+        function findSquareUnderCursor(e) {
+          // Obtenir les coordonnées du curseur
+          const x = e.clientX;
+          const y = e.clientY;
+
+          // Trouver l'élément sous le curseur
+          const elementsUnderCursor = document.elementsFromPoint(x, y);
+
+          // Chercher une case d'échiquier parmi les éléments
+          for (const element of elementsUnderCursor) {
+            if (element.hasAttribute("data-position")) {
+              return element;
+            }
+          }
+
+          return null;
+        }
+
+        // Fonction pour déterminer si un mouvement est un mouvement de cavalier
+        function isKnightMovement(fromSquare, toSquare) {
+          // Obtenir les positions des cases
+          const fromPos = fromSquare.dataset.position;
+          const toPos = toSquare.dataset.position;
+
+          // Extraire les coordonnées
+          const fromCol = fromPos.charCodeAt(0) - "a".charCodeAt(0);
+          const fromRow = 8 - parseInt(fromPos[1]);
+          const toCol = toPos.charCodeAt(0) - "a".charCodeAt(0);
+          const toRow = 8 - parseInt(toPos[1]);
+
+          // Calculer les différences
+          const colDiff = Math.abs(fromCol - toCol);
+          const rowDiff = Math.abs(fromRow - toRow);
+
+          // Un mouvement de cavalier est soit 2 cases horizontalement et 1 verticalement,
+          // soit 1 case horizontalement et 2 verticalement
+          return (
+            (colDiff === 2 && rowDiff === 1) || (colDiff === 1 && rowDiff === 2)
+          );
+        }
+
+        function drawArrow(fromSquare, toSquare) {
+          // Vérifier si cette flèche existe déjà
+          const existingArrowIndex = arrows.findIndex(
+            (arrow) =>
+              arrow.from === fromSquare.dataset.position &&
+              arrow.to === toSquare.dataset.position
+          );
+
+          if (existingArrowIndex !== -1) {
+            // Si la flèche existe déjà, la supprimer
+            removeArrow(arrows[existingArrowIndex]);
+            return;
+          }
+
+          // Vérifier si c'est un mouvement de cavalier
+          const isKnight = isKnightMovement(fromSquare, toSquare);
+
+          // Obtenir les coordonnées des cases
+          const fromRect = fromSquare.getBoundingClientRect();
+          const toRect = toSquare.getBoundingClientRect();
+          const boardRect = chessboard.getBoundingClientRect();
+
+          // Calculer les coordonnées relatives au plateau
+          const fromX = fromRect.left + fromRect.width / 2 - boardRect.left;
+          const fromY = fromRect.top + fromRect.height / 2 - boardRect.top;
+          const toX = toRect.left + toRect.width / 2 - boardRect.left;
+          const toY = toRect.top + toRect.height / 2 - boardRect.top;
+
+          // Créer l'élément SVG pour la flèche
+          const arrowId = `arrow-${Date.now()}`;
+          const arrowSVG = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "g"
+          );
+          arrowSVG.setAttribute("id", arrowId);
+          arrowSVG.setAttribute("class", "arrow");
+
+          // Ajuster légèrement les points de départ et d'arrivée pour éviter de couvrir les pièces
+          const squareSize = fromRect.width;
+          const offsetRatio = 0.3; // Pourcentage de la taille de la case
+
+          // Calculer l'angle pour la tête de flèche
+          let finalAngle;
+
+          if (isKnight) {
+            // Pour un mouvement de cavalier, créer un chemin en L
+            const path = document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "path"
+            );
+
+            // Calculer la différence entre les positions
+            const deltaX = toX - fromX;
+            const deltaY = toY - fromY;
+
+            // Déterminer le point intermédiaire pour le L
+            let midX, midY;
+
+            // Si le mouvement horizontal est plus grand que le mouvement vertical,
+            // nous allons d'abord nous déplacer horizontalement
+            if (Math.abs(deltaX) > Math.abs(deltaY)) {
+              midX = toX;
+              midY = fromY;
+              // La dernière partie du L est verticale
+              finalAngle = deltaY > 0 ? Math.PI / 2 : -Math.PI / 2;
+            } else {
+              midX = fromX;
+              midY = toY;
+              // La dernière partie du L est horizontale
+              finalAngle = deltaX > 0 ? 0 : Math.PI;
+            }
+
+            // Créer le chemin en L
+            path.setAttribute(
+              "d",
+              `M${fromX},${fromY} L${midX},${midY} L${toX},${toY}`
+            );
+            path.setAttribute("stroke", "rgba(255, 0, 0, 0.7)");
+            path.setAttribute("stroke-width", "8");
+            path.setAttribute("fill", "none");
+
+            arrowSVG.appendChild(path);
+          } else {
+            // Pour les autres mouvements, créer une ligne droite
+            finalAngle = Math.atan2(toY - fromY, toX - fromX);
+
+            const line = document.createElementNS(
+              "http://www.w3.org/2000/svg",
+              "line"
+            );
+            line.setAttribute("x1", fromX);
+            line.setAttribute("y1", fromY);
+            line.setAttribute("x2", toX);
+            line.setAttribute("y2", toY);
+            line.setAttribute("stroke", "rgba(255, 0, 0, 0.7)");
+            line.setAttribute("stroke-width", "8");
+
+            arrowSVG.appendChild(line);
+          }
+
+          // Créer la tête de la flèche
+          const headSize = squareSize * 0.2;
+          const headAngle1 = finalAngle - Math.PI / 7;
+          const headAngle2 = finalAngle + Math.PI / 7;
+          const headX1 = toX - headSize * Math.cos(headAngle1);
+          const headY1 = toY - headSize * Math.sin(headAngle1);
+          const headX2 = toX - headSize * Math.cos(headAngle2);
+          const headY2 = toY - headSize * Math.sin(headAngle2);
+
+          const head = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "polygon"
+          );
+          head.setAttribute(
+            "points",
+            `${toX},${toY} ${headX1},${headY1} ${headX2},${headY2}`
+          );
+          head.setAttribute("fill", "rgba(255, 0, 0, 0.7)");
+
+          // Ajouter la tête à la flèche
+          arrowSVG.appendChild(head);
+
+          // Ajouter la flèche au conteneur
+          arrowsContainer.appendChild(arrowSVG);
+
+          // Stocker les informations de la flèche
+          arrows.push({
+            id: arrowId,
+            from: fromSquare.dataset.position,
+            to: toSquare.dataset.position,
+            element: arrowSVG,
+            isKnightMove: isKnight,
+          });
+        }
+
+        function removeArrow(arrow) {
+          // Supprimer l'élément SVG
+          if (arrow.element && arrow.element.parentNode) {
+            arrow.element.parentNode.removeChild(arrow.element);
+          }
+
+          // Supprimer la flèche du tableau
+          const index = arrows.findIndex((a) => a.id === arrow.id);
+          if (index !== -1) {
+            arrows.splice(index, 1);
+          }
+        }
+
+        function findArrowOnSquare(square) {
+          const position = square.dataset.position;
+          return arrows.find(
+            (arrow) => arrow.from === position || arrow.to === position
+          );
+        }
+
+        function clearAllArrows() {
+          // Supprimer toutes les flèches
+          arrows.forEach((arrow) => {
+            if (arrow.element && arrow.element.parentNode) {
+              arrow.element.parentNode.removeChild(arrow.element);
+            }
+          });
+          arrows = [];
+        }
+
+        function updateBoard(gameState) {
+          // Mettre à jour l'affichage du tour
+          currentTurnDisplay.textContent = gameState.turn;
+          // Mettre à jour la variable currentTurn
+          currentTurn = gameState.turn;
+
+          // Mettre à jour le plateau
+          const board = gameState.board;
+          for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+              const square = document.querySelector(
+                `[data-row="${row}"][data-col="${col}"]`
+              );
+              if (square) {
+                square.textContent = board[row][col];
+              }
+            }
+          }
+
+          // Si le jeu est terminé, afficher un message
+          if (gameState.game_over) {
+            let alertClass = "alert-success";
+            let gameOverMessage = "";
+
+            if (gameState.winner) {
+              gameOverMessage = `ÉCHEC ET MAT ! ${gameState.winner.toUpperCase()} GAGNE !`;
+              alertClass = "alert-danger";
+            } else {
+              gameOverMessage = "Partie terminée! Match nul";
+            }
+
+            // Créer une notification plus visible
+            const existingAlert = document.querySelector(".checkmate-alert");
+            if (!existingAlert) {
+              const gameOverAlert = document.createElement("div");
+              gameOverAlert.className = `alert ${alertClass} mt-3 checkmate-alert`;
+              gameOverAlert.style.fontSize = "1.5rem";
+              gameOverAlert.style.fontWeight = "bold";
+              gameOverAlert.textContent = gameOverMessage;
+
+              // Insérer la notification avant la boîte de message
+              messageBox.parentNode.insertBefore(gameOverAlert, messageBox);
+
+              // Si c'est un échec et mat, faire clignoter la notification
+              if (gameState.winner) {
+                let visible = true;
+                const blinkInterval = setInterval(() => {
+                  gameOverAlert.style.visibility = visible
+                    ? "visible"
+                    : "hidden";
+                  visible = !visible;
+                }, 500);
+
+                // Arrêter le clignotement après 5 secondes
+                setTimeout(() => {
+                  clearInterval(blinkInterval);
+                  gameOverAlert.style.visibility = "visible";
+                }, 5000);
+              }
+            }
+
+            messageBox.innerHTML = `<div class="alert ${alertClass}">${gameOverMessage}</div>`;
+          }
+        }
+      });
+    </script>
+  </body>
+</html>

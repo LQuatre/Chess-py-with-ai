@@ -204,21 +204,23 @@
             <table class="history-table">
               <thead>
                 <tr>
-                  <th>#</th>
+                  <th>Tour</th>
                   <th>Joueur</th>
                   <th>De</th>
                   <th>À</th>
                   <th>Pièce</th>
+                  <th>Description</th>
                 </tr>
               </thead>
               <tbody>
                 {% for move in history %}
                 <tr>
-                  <td>{{ move.move_number }}</td>
-                  <td>{{ move.player }}</td>
-                  <td>{{ move.from_pos }}</td>
-                  <td>{{ move.to_pos }}</td>
-                  <td>{{ move.piece }}</td>
+                  <td>{{ move.tour }}</td>
+                  <td>{{ move.joueur }}</td>
+                  <td>{{ move.from }}</td>
+                  <td>{{ move.to }}</td>
+                  <td>{{ move.piece if move.piece else '-' }}</td>
+                  <td>{{ move.position }}</td>
                 </tr>
                 {% endfor %}
               </tbody>

@@ -1,0 +1,39 @@
+Tour,Joueur,Mouvement,Pice,Position,start,end,Piece
+1,White,e2e4,,♙ moved from e2 to e4,"(6, 4)","(4, 4)",♙
+1,Black,e7e5,,♟ moved from e7 to e5,"(1, 4)","(3, 4)",♟
+2,White,b1c3,,♘ moved from b1 to c3,"(7, 1)","(5, 2)",♘
+2,Black,b8c6,,♞ moved from b8 to c6,"(0, 1)","(2, 2)",♞
+3,White,c3d5,,♘ moved from c3 to d5,"(5, 2)","(3, 3)",♘
+3,Black,c6d4,,♞ moved from c6 to d4,"(2, 2)","(4, 3)",♞
+4,White,c2c4,,♙ moved from c2 to c4,"(6, 2)","(4, 2)",♙
+4,Black,g8f6,,♞ moved from g8 to f6,"(0, 6)","(2, 5)",♞
+5,White,d5f6,,♘ moved from d5 to f6 - ÉCHEC au roi black !,"(3, 3)","(2, 5)",♘
+5,Black,d8f6,,♛ moved from d8 to f6,"(0, 3)","(2, 5)",♛
+6,White,d2d3,,♙ moved from d2 to d3,"(6, 3)","(5, 3)",♙
+6,Black,f8b4,,♝ moved from f8 to b4 - ÉCHEC au roi white !,"(0, 5)","(4, 1)",♝
+7,White,c1d2,,♗ moved from c1 to d2,"(7, 2)","(6, 3)",♗
+7,Black,b4d2,,♝ moved from b4 to d2 - ÉCHEC au roi white !,"(4, 1)","(6, 3)",♝
+8,White,d1d2,,♕ moved from d1 to d2,"(7, 3)","(6, 3)",♕
+8,Black,e8g8,,♚ moved from e8 to g8,"(0, 4)","(0, 6)",♚
+9,White,a1d1,,♖ moved from a1 to d1,"(7, 0)","(7, 3)",♖
+9,Black,d7d6,,♟ moved from d7 to d6,"(1, 3)","(2, 3)",♟
+10,White,d2f4,,♕ moved from d2 to f4,"(6, 3)","(4, 5)",♕
+10,Black,f6f4,,♛ moved from f6 to f4,"(2, 5)","(4, 5)",♛
+11,White,a2a3,,♙ moved from a2 to a3,"(6, 0)","(5, 0)",♙
+11,Black,d4c2,,♞ moved from d4 to c2 - ÉCHEC au roi white !,"(4, 3)","(6, 2)",♞
+12,White,e1e2,,♔ moved from e1 to e2,"(7, 4)","(6, 4)",♔
+12,Black,c2d4,,♞ moved from c2 to d4 - ÉCHEC au roi white !,"(6, 2)","(4, 3)",♞
+13,White,e2e1,,♔ moved from e2 to e1,"(6, 4)","(7, 4)",♔
+13,Black,d4c2,,♞ moved from d4 to c2 - ÉCHEC au roi white !,"(4, 3)","(6, 2)",♞
+14,White,e1e2,,♔ moved from e1 to e2,"(7, 4)","(6, 4)",♔
+14,Black,c2d4,,♞ moved from c2 to d4 - ÉCHEC au roi white !,"(6, 2)","(4, 3)",♞
+15,White,e2e1,,♔ moved from e2 to e1,"(6, 4)","(7, 4)",♔
+15,Black,d4c2,,♞ moved from d4 to c2 - ÉCHEC au roi white !,"(4, 3)","(6, 2)",♞
+16,White,e1e2,,♔ moved from e1 to e2,"(7, 4)","(6, 4)",♔
+16,Black,c2d4,,♞ moved from c2 to d4 - ÉCHEC au roi white !,"(6, 2)","(4, 3)",♞
+17,White,e2e1,,♔ moved from e2 to e1,"(6, 4)","(7, 4)",♔
+17,Black,d4c2,,♞ moved from d4 to c2 - ÉCHEC au roi white !,"(4, 3)","(6, 2)",♞
+18,White,e1e2,,♔ moved from e1 to e2,"(7, 4)","(6, 4)",♔
+18,Black,c2d4,,♞ moved from c2 to d4 - ÉCHEC au roi white !,"(6, 2)","(4, 3)",♞
+19,White,e2e1,,♔ moved from e2 to e1,"(6, 4)","(7, 4)",♔
+19,Black,d4c2,,♞ moved from d4 to c2 - ÉCHEC au roi white !,"(4, 3)","(6, 2)",♞

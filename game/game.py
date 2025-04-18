@@ -2,14 +2,28 @@
 
 from game.board import Board
 from game.ai import AI
+import datetime
+import uuid
+
+# Import conditionnel pour éviter les imports circulaires
+def get_game_stats():
+    try:
+        from game.game_stats import GameStats
+        return GameStats.get_instance()
+    except ImportError:
+        return None
 
 class Game:
     def __init__(self, white_player_type="human", black_player_type="human", ai_difficulty="medium"):
+        self.id = str(uuid.uuid4())  # Identifiant unique pour chaque partie
         self.board = Board()  # Crée un plateau de jeu
         self.turn = "white"   # Le joueur blanc commence
         self.opponent = "black" # Le joueur est l'adversaire du joueur courant
         self.game_over = False
         self.winner = None
+        self.start_time = datetime.datetime.now()  # Heure de début de la partie
+        self.move_count = 0  # Compteur de coups pour détecter les parties trop longues
+        self.repeated_positions = {}  # Pour détecter les répétitions de positions
         
         # Configuration des joueurs (human ou ai)
         self.white_player_type = white_player_type
@@ -71,10 +85,33 @@ class Game:
                 print(f"Erreur: Mouvement impossible")
                 return False, "Mouvement impossible"
             
+            # Incrémenter le compteur de coups
+            self.move_count += 1
+            
             # Synchroniser le tour avec celui du plateau
             self.turn = self.board.turn
             self.opponent = self.board.opponent
             print(f"Tour changé: {self.turn}, Adversaire: {self.opponent}")
+            
+            # Vérifier si la partie est trop longue (plus de 200 coups)
+            if self.move_count > 200:
+                self.game_over = True
+                self.winner = None
+                print("La partie est déclarée nulle après 200 coups.")
+                return True, "La partie est déclarée nulle après 200 coups."
+                
+            # Détecter les répétitions de positions
+            board_hash = self.board.hash_position()
+            if board_hash in self.repeated_positions:
+                self.repeated_positions[board_hash] += 1
+                # Si une position se répète 3 fois, déclarer la partie nulle
+                if self.repeated_positions[board_hash] >= 3:
+                    self.game_over = True
+                    self.winner = None
+                    print("La partie est déclarée nulle par répétition de position.")
+                    return True, "La partie est déclarée nulle par répétition de position."
+            else:
+                self.repeated_positions[board_hash] = 1
             
             # Vérifie l'état du jeu après le coup
             game_status = self.board.check_game_status()
@@ -90,6 +127,9 @@ class Game:
                 # Apprentissage pour les IA
                 self.learn_from_game()
                 
+                # Sauvegarder les statistiques de la partie
+                self.save_game_stats()
+                
             elif game_status == "Check":
                 message = f"Le roi de {self.opponent} est en échec !"
                 print(f"Échec détecté pour {self.opponent}")
@@ -100,6 +140,9 @@ class Game:
                 
                 # Apprentissage pour les IA en cas de match nul
                 self.learn_from_game()
+                
+                # Sauvegarder les statistiques de la partie
+                self.save_game_stats()
             
             # Vérifier directement si le roi adverse est en échec ou échec et mat
             if self.board.is_king_in_check(self.opponent):
@@ -114,6 +157,9 @@ class Game:
                     
                     # Apprentissage pour les IA
                     self.learn_from_game()
+                    
+                    # Sauvegarder les statistiques de la partie
+                    self.save_game_stats()
             
             # Si c'est maintenant le tour de l'IA, jouer automatiquement
             if not self.game_over:
@@ -135,9 +181,7 @@ class Game:
             return True, message
             
         except Exception as e:
-            import traceback
             print(f"Erreur lors du traitement du coup: {str(e)}")
-            print(traceback.format_exc())
             return False, f"Erreur interne: {str(e)}"
         
     def learn_from_game(self):
@@ -172,36 +216,40 @@ class Game:
     def save_game_state(self):
         """Sauvegarde l'état actuel de la partie."""
         import os
-        import json
+        import pandas as pd
         from datetime import datetime
         
         # Créer le dossier de sauvegarde s'il n'existe pas
         save_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'saved_games')
         os.makedirs(save_dir, exist_ok=True)
         
-        # Créer un identifiant unique pour la partie
-        game_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Si la partie est terminée, sauvegarder les statistiques
+        if self.game_over:
+            self.save_game_stats()
         
-        # Préparer les données à sauvegarder
-        game_data = {
-            "board": self.board.to_dict(),
-            "turn": self.turn,
-            "opponent": self.opponent,
-            "game_over": self.game_over,
-            "winner": self.winner,
-            "white_player_type": self.white_player_type,
-            "black_player_type": self.black_player_type,
-            "history": self.board.history.moves.to_dict(orient='records') if hasattr(self.board, 'history') and hasattr(self.board.history, 'moves') else [],
-            "timestamp": datetime.now().isoformat()
-        }
-        
-        # Sauvegarder les données
-        save_path = os.path.join(save_dir, f"game_{game_id}.json")
+        # Sauvegarder l'historique des mouvements en CSV
+        if hasattr(self.board, 'history') and hasattr(self.board.history, 'moves'):
+            history_file = os.path.join(save_dir, f"game_{self.id}_history.csv")
+            try:
+                self.board.history.save_to_csv(history_file)
+                print(f"Historique de la partie sauvegardé dans {history_file}")
+            except Exception as e:
+                print(f"Erreur lors de la sauvegarde de l'historique: {e}")
+    
+    def save_game_stats(self):
+        """Sauvegarde les statistiques de la partie terminée."""
         try:
-            with open(save_path, 'w') as f:
-                json.dump(game_data, f, indent=2)
+            # Obtenir l'instance de GameStats
+            from game.game_stats import GameStats
+            game_stats = GameStats.get_instance()
+            
+            if game_stats:
+                game_stats.save_game_stats(self)
+                print(f"Statistiques de la partie {self.id} sauvegardées avec succès.")
+            else:
+                print("Impossible de sauvegarder les statistiques: GameStats non disponible.")
         except Exception as e:
-            print(f"Erreur lors de la sauvegarde de la partie: {e}")
+            print(f"Erreur lors de la sauvegarde des statistiques: {e}")
     
     def play_ai_turn(self):
         """Fait jouer l'IA pour le tour actuel."""
@@ -218,8 +266,18 @@ class Game:
                 return False, "Pas d'IA pour ce joueur"
             
             print(f"Recherche du meilleur coup pour l'IA {self.turn} (difficulté: {ai.difficulty})")
+            
+            # Définir le temps de réflexion en fonction de la difficulté
+            max_time = 5  # Temps par défaut (5 secondes)
+            if ai.difficulty == "hard":
+                max_time = 15  # Donner 15 secondes à l'IA difficile
+            elif ai.difficulty == "medium":
+                max_time = 8   # Donner 8 secondes à l'IA moyenne
+                
+            print(f"Temps de réflexion accordé: {max_time} secondes")
+            
             # Obtenir le meilleur mouvement de l'IA
-            best_move = ai.get_best_move(self.board)
+            best_move = ai.get_best_move(self.board, max_time=max_time)
             if not best_move:
                 print("L'IA n'a pas trouvé de mouvement valide")
                 return False, "L'IA ne trouve pas de mouvement valide"
@@ -244,9 +302,7 @@ class Game:
                 return False, f"Erreur lors du coup de l'IA: {message}"
                 
         except Exception as e:
-            import traceback
             print(f"Erreur lors du tour de l'IA: {str(e)}")
-            print(traceback.format_exc())
             return False, f"Erreur interne de l'IA: {str(e)}"
 
     def get_game_state(self):

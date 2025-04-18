@@ -146,7 +146,7 @@
         <div class="col-md-6">
           <div class="card">
             <div class="card-header">
-              <h4>Statistiques supplémentaires</h4>
+              <h4>Statistiques générales</h4>
             </div>
             <div class="card-body">
               <ul class="list-group list-group-flush">
@@ -182,6 +182,22 @@
                     >{{ stats.total_moves }}</span
                   >
                 </li>
+                <li
+                  class="list-group-item d-flex justify-content-between align-items-center"
+                >
+                  Temps moyen par coup
+                  <span class="badge bg-primary rounded-pill"
+                    >{{ "%.2f"|format(stats.avg_time_per_move) }} s</span
+                  >
+                </li>
+                <li
+                  class="list-group-item d-flex justify-content-between align-items-center"
+                >
+                  Temps total de jeu
+                  <span class="badge bg-primary rounded-pill"
+                    >{{ "%.2f"|format(stats.total_time) }} s</span
+                  >
+                </li>
               </ul>
             </div>
           </div>
@@ -200,6 +216,255 @@
         </div>
       </div>
 
+      <!-- Statistiques de performance de l'IA -->
+      <div class="row mb-4">
+        <div class="col-md-12">
+          <h2 class="text-center mb-4">Performance de l'IA</h2>
+        </div>
+      </div>
+
+      <div class="row mb-4">
+        <div class="col-md-3">
+          <div class="card stat-card">
+            <div class="stat-value">
+              {{ "%.2f"|format(ai_performance.avg_nodes_evaluated) }}
+            </div>
+            <div class="stat-label">Nœuds évalués en moyenne</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card stat-card">
+            <div class="stat-value">
+              {{ "%.2f"|format(ai_performance.avg_evaluation_time * 1000) }}
+            </div>
+            <div class="stat-label">Temps d'évaluation moyen (ms)</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card stat-card">
+            <div class="stat-value">
+              {{ "%.2f"|format(ai_performance.max_evaluation_time * 1000) }}
+            </div>
+            <div class="stat-label">Temps d'évaluation max (ms)</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card stat-card">
+            <div class="stat-value">
+              {{ ai_performance.total_nodes_evaluated }}
+            </div>
+            <div class="stat-label">Total des nœuds évalués</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statistiques par niveau de difficulté -->
+      <div class="row mb-4">
+        <div class="col-md-12">
+          <div class="card">
+            <div class="card-header">
+              <h4>Performance par niveau de difficulté</h4>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>Difficulté</th>
+                      <th>Parties</th>
+                      <th>Victoires</th>
+                      <th>Défaites</th>
+                      <th>Nuls</th>
+                      <th>Taux de victoire</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>Facile</td>
+                      <td>{{ stats.difficulty_stats.easy.games }}</td>
+                      <td>{{ stats.difficulty_stats.easy.wins }}</td>
+                      <td>{{ stats.difficulty_stats.easy.losses }}</td>
+                      <td>{{ stats.difficulty_stats.easy.draws }}</td>
+                      <td>
+                        {{ "%.1f"|format(stats.difficulty_stats.easy.win_rate)
+                        }}%
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Moyen</td>
+                      <td>{{ stats.difficulty_stats.medium.games }}</td>
+                      <td>{{ stats.difficulty_stats.medium.wins }}</td>
+                      <td>{{ stats.difficulty_stats.medium.losses }}</td>
+                      <td>{{ stats.difficulty_stats.medium.draws }}</td>
+                      <td>
+                        {{ "%.1f"|format(stats.difficulty_stats.medium.win_rate)
+                        }}%
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>Difficile</td>
+                      <td>{{ stats.difficulty_stats.hard.games }}</td>
+                      <td>{{ stats.difficulty_stats.hard.wins }}</td>
+                      <td>{{ stats.difficulty_stats.hard.losses }}</td>
+                      <td>{{ stats.difficulty_stats.hard.draws }}</td>
+                      <td>
+                        {{ "%.1f"|format(stats.difficulty_stats.hard.win_rate)
+                        }}%
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Graphiques de performance -->
+      <div class="row mb-4">
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header">
+              <h4>Taux de victoire par difficulté</h4>
+            </div>
+            <div class="card-body">
+              <div class="chart-container">
+                <canvas id="difficultyWinRateChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header">
+              <h4>Distribution des parties par difficulté</h4>
+            </div>
+            <div class="card-body">
+              <div class="chart-container">
+                <canvas id="difficultyDistributionChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Données de performance détaillées -->
+      <!-- Ensure this is processed by a server-side framework like Flask or Django -->
+      {% if performance_data %}
+      <div class="row mb-4">
+        <div class="col-md-12">
+          <h2 class="text-center mb-4">Données de performance détaillées</h2>
+        </div>
+      </div>
+
+      <div class="row mb-4">
+        <div class="col-md-12">
+          <div class="card">
+            <div class="card-header">
+              <h4>Fichiers de performance récents</h4>
+            </div>
+            <div class="card-body">
+              <div class="accordion" id="performanceAccordion">
+                {% for data in performance_data %}
+                <div class="accordion-item">
+                  <h2 class="accordion-header" id="heading{{ loop.index }}">
+                    <button
+                      class="accordion-button {% if not loop.first %}collapsed{% endif %}"
+                      type="button"
+                      data-bs-toggle="collapse"
+                      data-bs-target="#collapse{{ loop.index }}"
+                      aria-expanded="{% if loop.first %}true{% else %}false{% endif %}"
+                      aria-controls="collapse{{ loop.index }}"
+                    >
+                      Partie du {{ data.timestamp[:8] }} à {{ data.timestamp[9:]
+                      }} - {{ data.move_count }} coups
+                    </button>
+                  </h2>
+                  <div
+                    id="collapse{{ loop.index }}"
+                    class="accordion-collapse collapse {% if loop.first %}show{% endif %}"
+                    aria-labelledby="heading{{ loop.index }}"
+                    data-bs-parent="#performanceAccordion"
+                  >
+                    <div class="accordion-body">
+                      <div class="row mb-3">
+                        <div class="col-md-3">
+                          <div class="card stat-card">
+                            <div class="stat-value">
+                              {{ "%.2f"|format(data.avg_move_time) }}
+                            </div>
+                            <div class="stat-label">
+                              Temps moyen par coup (s)
+                            </div>
+                          </div>
+                        </div>
+                        <div class="col-md-3">
+                          <div class="card stat-card">
+                            <div class="stat-value">
+                              {{ "%.2f"|format(data.avg_eval_time) }}
+                            </div>
+                            <div class="stat-label">
+                              Temps d'évaluation moyen (ms)
+                            </div>
+                          </div>
+                        </div>
+                        <div class="col-md-3">
+                          <div class="card stat-card">
+                            <div class="stat-value">
+                              {{ "%.2f"|format(data.max_move_time) }}
+                            </div>
+                            <div class="stat-label">Temps max par coup (s)</div>
+                          </div>
+                        </div>
+                        <div class="col-md-3">
+                          <div class="card stat-card">
+                            <div class="stat-value">
+                              {{ "%.2f"|format(data.max_eval_time) }}
+                            </div>
+                            <div class="stat-label">
+                              Temps d'évaluation max (ms)
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="table-responsive">
+                        <table class="table table-striped table-sm">
+                          <thead>
+                            <tr>
+                              <th>Coup</th>
+                              <th>Temps de réflexion (s)</th>
+                              <th>Temps d'évaluation (ms)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {% for row in data.data %}
+                            <tr>
+                              <td>{{ row.Move }}</td>
+                              <td>{{ "%.3f"|format(row['Move Time (s)']) }}</td>
+                              <td>
+                                {{ "%.3f"|format(row['Evaluation Time (ms)']) }}
+                              </td>
+                            </tr>
+                            {% endfor %}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div class="chart-container mt-4">
+                        <canvas id="moveTimeChart{{ loop.index }}"></canvas>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
       <div class="text-center mt-4">
         <a href="/saved-games" class="btn btn-secondary"
           >Retour aux parties sauvegardées</a
@@ -209,78 +474,105 @@
     </div>
 
     <script>
+      // Définir les variables JavaScript à partir des données du serveur
+      const statsData = {
+        ai_vs_ai: parseInt(parseInt("{{ stats.ai_vs_ai }}" || 0) || 0),
+        human_vs_ai: parseInt(parseInt("{{ stats.human_vs_ai }}" || 0) || 0),
+        human_vs_human: parseInt(parseInt("{{ stats.human_vs_human }}" || 0) || 0),
+        ai_wins: parseInt(parseInt("{{ stats.ai_wins }}" || 0) || 0),
+        human_wins: parseInt(parseInt("{{ stats.human_wins }}" || 0) || 0),
+        draws: parseInt(parseInt("{{ stats.draws }}" || 0) || 0),
+        white_wins: parseInt(parseInt("{{ stats.white_wins }}" || 0) || 0),
+        black_wins: parseInt(parseInt("{{ stats.black_wins }}" || 0) || 0),
+        difficulty_stats: {
+          easy: {
+            games: parseInt(parseInt("{{ stats.difficulty_stats.easy.games }}" || 0) || 0),
+            wins: parseInt(parseInt("{{ stats.difficulty_stats.easy.wins }}" || 0) || 0),
+            losses: parseInt(parseInt("{{ stats.difficulty_stats.easy.losses }}" || 0) || 0),
+            draws: parseInt(parseInt("{{ stats.difficulty_stats.easy.draws }}" || 0) || 0),
+            win_rate: parseFloat(parseFloat("{{ stats.difficulty_stats.easy.win_rate }}" || 0) || 0),
+          },
+          medium: {
+            games: parseInt(parseInt("{{ stats.difficulty_stats.medium.games }}" || 0) || 0),
+            wins: parseInt(parseInt("{{ stats.difficulty_stats.medium.wins }}" || 0) || 0),
+            losses: parseInt(parseInt("{{ stats.difficulty_stats.medium.losses }}" || 0) || 0),
+            draws: parseInt(parseInt(parseInt("{{ stats.difficulty_stats.medium.draws }}" || 0) || 0) || 0),
+            win_rate: parseFloat(parseFloat(parseInt(parseInt("{{ stats.difficulty_stats.medium.win_rate }}" || 0) || 0)) || 0)
+          },
+          hard: {
+            games: parseInt(parseFloat("{{ stats.difficulty_stats.hard.games }}" || 0) || 0),
+            wins: parseInt("{{ stats.difficulty_stats.hard.wins }}" || 0),
+            losses: parseInt("{{ stats.difficulty_stats.hard.losses }}" || 0),
+            draws: parseInt("{{ stats.difficulty_stats.hard.draws }}" || 0),
+            win_rate: parseFloat("{{ stats.difficulty_stats.hard.win_rate }}" || 0),
+          },
+        },
+      };
+
       document.addEventListener("DOMContentLoaded", function () {
+        // Fonction pour créer un graphique
+        function createChart(elementId, type, labels, data, colors, options = {}) {
+            const ctx = document.getElementById(elementId).getContext("2d");
+            const chartData = {
+              labels: labels,
+              datasets: [
+                {
+                  data: data,
+                  backgroundColor: colors,
+                  borderColor: Array(colors.length).fill("#fff"),
+                  borderWidth: 2,
+                }
+              ],
+            };
+            // Options par défaut
+            const defaultOptions = {
+              responsive: true,
+              maintainAspectRatio: false,
+            };
+
+            // Fusionner les options par défaut avec les options spécifiques
+            const chartOptions = {...defaultOptions, ...options};
+
+            return new Chart(ctx, {
+              type: type,
+              data: chartData,
+              options: chartOptions,
+            });
+        }
+
         // Graphique des types de parties
-        const gameTypesCtx = document.getElementById("gameTypesChart").getContext("2d");
-        const gameTypesChart = new Chart(gameTypesCtx, {
-          type: "pie",
-          data: {
-            labels: ["IA vs IA", "Humain vs IA", "Humain vs Humain"],
-            datasets: [
-              {
-                data: [stats.ai_vs_ai, stats.human_vs_ai, stats.human_vs_human],
-                backgroundColor: ["#f0d9b5", "#b58863", "#6d4c41"],
-                borderColor: ["#fff", "#fff", "#fff"],
-                borderWidth: 2,
-              },
-            ],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                position: "bottom",
-              },
-            },
-          },
-        });
+        const gameTypesChart = createChart(
+          "gameTypesChart",
+          "pie",
+          ["IA vs IA", "Humain vs IA", "Humain vs Humain"],
+          [statsData.ai_vs_ai, statsData.human_vs_ai, statsData.human_vs_human],
+          ["#f0d9b5", "#b58863", "#6d4c41"]
+        );
 
         // Graphique des résultats des parties
-        const gameResultsCtx = document.getElementById("gameResultsChart").getContext("2d");
-        const gameResultsChart = new Chart(gameResultsCtx, {
-          type: "doughnut",
-          data: {
-            labels: ["Victoires de l'IA", "Victoires humaines", "Matchs nuls"],
-            datasets: [
-              {
-                data: [{{ stats.ai_wins }}, {{ stats.human_wins }}, {{ stats.draws }}],
-                backgroundColor: ["#4caf50", "#2196f3", "#ffc107"],
-                borderColor: ["#fff", "#fff", "#fff"],
-                borderWidth: 2,
-              },
-            ],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
+        const gameResultsChart = createChart(
+          "gameResultsChart",
+          "doughnut",
+          ["Victoires de l'IA", "Victoires humaines", "Matchs nuls"],
+          [statsData.ai_wins, statsData.human_wins, statsData.draws],
+          ["#4caf50", "#2196f3", "#ffc107"],
+          {
             plugins: {
               legend: {
                 position: "bottom",
               },
             },
-          },
-        });
+          }
+        );
 
         // Graphique des victoires par couleur
-        const colorWinsCtx = document.getElementById("colorWinsChart").getContext("2d");
-        const colorWinsChart = new Chart(colorWinsCtx, {
-          type: "bar",
-          data: {
-            labels: ["Blancs", "Noirs", "Matchs nuls"],
-            datasets: [
-              {
-                label: "Nombre de victoires",
-                data: [{{ stats.white_wins }}, {{ stats.black_wins }}, {{ stats.draws }}],
-                backgroundColor: ["#f0d9b5", "#b58863", "#ffc107"],
-                borderColor: ["#e0c68c", "#a57753", "#e5ac06"],
-                borderWidth: 1,
-              },
-            ],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
+        const colorWinsChart = createChart(
+          "colorWinsChart",
+          "bar",
+          ["Blancs", "Noirs", "Matchs nuls"],
+          [statsData.white_wins, statsData.black_wins, statsData.draws],
+          ["#f0d9b5", "#b58863", "#ffc107"],
+          {
             scales: {
               y: {
                 beginAtZero: true,
@@ -294,9 +586,167 @@
                 display: false,
               },
             },
-          },
-        });
+          }
+        );
+
+        // Graphique du taux de victoire par difficulté
+        const difficultyWinRateChart = createChart(
+          "difficultyWinRateChart",
+          "bar",
+          ["Facile", "Moyen", "Difficile"],
+          [
+            statsData.difficulty_stats.easy.win_rate,
+            statsData.difficulty_stats.medium.win_rate,
+            statsData.difficulty_stats.hard.win_rate,
+          ],
+          ["#4caf50", "#ff9800", "#f44336"],
+          {
+            scales: {
+              y: {
+                beginAtZero: true,
+                max: 100,
+                ticks: {
+                  callback: function (value) {
+                    return value + "%";
+                  },
+                },
+              },
+            },
+            plugins: {
+              legend: {
+                display: false,
+              },
+              tooltip: {
+                callbacks: {
+                  label: function (context) {
+                    return context.raw.toFixed(1) + "%";
+                  },
+                },
+              },
+            },
+          }
+        );
+
+        // Graphique de la distribution des parties par difficulté
+        const difficultyDistributionChart = createChart(
+          "difficultyDistributionChart",
+          "pie",
+          ["Facile", "Moyen", "Difficile"],
+          [
+            statsData.difficulty_stats.easy.games,
+            statsData.difficulty_stats.medium.games,
+            statsData.difficulty_stats.hard.games,
+          ],
+          ["#4caf50", "#ff9800", "#f44336"],
+          {
+            plugins: {
+              legend: {
+                position: "bottom",
+              },
+              tooltip: {
+                callbacks: {
+                  label: function (context) {
+                    const label = context.label || "";
+                    const value = context.raw || 0;
+                    const total = context.dataset.data.reduce(
+                      (acc, val) => acc + val,
+                      0
+                    );
+                    const percentage =
+                      total > 0
+                        ? ((value / total) * 100).toFixed(1) + "%"
+                        : "0%";
+                    return `${label}: ${value} (${percentage})`;
+                  },
+                },
+              },
+            },
+          }
+        );
       });
+
+      // Fonction pour créer un graphique de performance
+      function createPerformanceChart(elementId, labels, moveTimeData, evalTimeData) {
+        const ctx = document.getElementById(elementId).getContext('2d');
+        return new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'Temps de réflexion (s)',
+                data: moveTimeData,
+                borderColor: '#4caf50',
+                backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4
+              },
+              {
+                label: 'Temps d\'évaluation (s)',
+                data: evalTimeData,
+                borderColor: '#2196f3',
+                backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.4
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: 'Temps (secondes)'
+                }
+              },
+              x: {
+                title: {
+                  display: true,
+                  text: 'Numéro du coup'
+                }
+              }
+            },
+            plugins: {
+              title: {
+                display: true,
+                text: 'Temps de réflexion et d\'évaluation par coup'
+              },
+              legend: {
+                position: 'bottom'
+              }
+            }
+          }
+        });
+      }
+
+      // Créer les graphiques pour les données de performance
+      {% if performance_data %}
+        const performanceData = {{ performance_data|tojson }};
+        performanceData.forEach((data, index) => {
+          // Préparer les données pour le graphique
+          const moveTimeData = {
+            labels: data.data.map(row => row.Move),
+            moveTime: data.data.map(row => row['Move Time (s)']),
+            evalTime: data.data.map(row => row['Evaluation Time (ms)'] / 1000)
+          };
+
+          // Créer le graphique
+          createPerformanceChart(
+            `moveTimeChart${index + 1}`,
+            moveTimeData.labels,
+            moveTimeData.moveTime,
+            moveTimeData.evalTime
+          );
+        });
+      {% endif %}
     </script>
+
+    <!-- Bootstrap JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   </body>
 </html>

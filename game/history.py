@@ -1,4 +1,9 @@
 import pandas as pd
+import threading
+import matplotlib
+matplotlib.use('Agg')  # Use the Agg backend which doesn't require a GUI
+# Vérifier si nous sommes dans le thread principal
+is_main_thread = threading.current_thread() is threading.main_thread()
 import matplotlib.pyplot as plt
 import tabulate
 

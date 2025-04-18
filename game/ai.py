@@ -4,8 +4,12 @@ import os
 import random
 import datetime
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 from game.move import Move
 import pickle
+from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 
 class AI:
     def __init__(self, color="black", difficulty="easy"):
@@ -20,9 +24,9 @@ class AI:
             "King": 20000
         }
         
-        # Tables de valeurs positionnelles pour chaque type de pièce
+        # Tables de valeurs positionnelles pour chaque type de pièce (converties en numpy arrays)
         self.position_tables = {
-            "Pawn": [
+            "Pawn": np.array([
                 [0,  0,  0,  0,  0,  0,  0,  0],
                 [50, 50, 50, 50, 50, 50, 50, 50],
                 [10, 10, 20, 30, 30, 20, 10, 10],
@@ -31,8 +35,8 @@ class AI:
                 [5, -5,-10,  0,  0,-10, -5,  5],
                 [5, 10, 10,-20,-20, 10, 10,  5],
                 [0,  0,  0,  0,  0,  0,  0,  0]
-            ],
-            "Knight": [
+            ]),
+            "Knight": np.array([
                 [-50,-40,-30,-30,-30,-30,-40,-50],
                 [-40,-20,  0,  0,  0,  0,-20,-40],
                 [-30,  0, 10, 15, 15, 10,  0,-30],
@@ -41,8 +45,8 @@ class AI:
                 [-30,  5, 10, 15, 15, 10,  5,-30],
                 [-40,-20,  0,  5,  5,  0,-20,-40],
                 [-50,-40,-30,-30,-30,-30,-40,-50]
-            ],
-            "Bishop": [
+            ]),
+            "Bishop": np.array([
                 [-20,-10,-10,-10,-10,-10,-10,-20],
                 [-10,  0,  0,  0,  0,  0,  0,-10],
                 [-10,  0, 10, 10, 10, 10,  0,-10],
@@ -51,8 +55,8 @@ class AI:
                 [-10,  5,  5,  5,  5,  5,  5,-10],
                 [-10,  0,  5,  0,  0,  5,  0,-10],
                 [-20,-10,-10,-10,-10,-10,-10,-20]
-            ],
-            "Rook": [
+            ]),
+            "Rook": np.array([
                 [0,  0,  0,  0,  0,  0,  0,  0],
                 [5, 10, 10, 10, 10, 10, 10,  5],
                 [-5,  0,  0,  0,  0,  0,  0, -5],
@@ -61,8 +65,8 @@ class AI:
                 [-5,  0,  0,  0,  0,  0,  0, -5],
                 [-5,  0,  0,  0,  0,  0,  0, -5],
                 [0,  0,  0,  5,  5,  0,  0,  0]
-            ],
-            "Queen": [
+            ]),
+            "Queen": np.array([
                 [-20,-10,-10, -5, -5,-10,-10,-20],
                 [-10,  0,  0,  0,  0,  0,  0,-10],
                 [-10,  0,  5,  5,  5,  5,  0,-10],
@@ -71,8 +75,8 @@ class AI:
                 [-10,  5,  5,  5,  5,  5,  0,-10],
                 [-10,  0,  5,  0,  0,  0,  0,-10],
                 [-20,-10,-10, -5, -5,-10,-10,-20]
-            ],
-            "King": [
+            ]),
+            "King": np.array([
                 [-30,-40,-40,-50,-50,-40,-40,-30],
                 [-30,-40,-40,-50,-50,-40,-40,-30],
                 [-30,-40,-40,-50,-50,-40,-40,-30],
@@ -81,8 +85,8 @@ class AI:
                 [-10,-20,-20,-20,-20,-20,-20,-10],
                 [20, 20,  0,  0,  0,  0, 20, 20],
                 [20, 30, 10,  0,  0, 10, 30, 20]
-            ],
-            "King_endgame": [
+            ]),
+            "King_endgame": np.array([
                 [-50,-40,-30,-20,-20,-30,-40,-50],
                 [-30,-20,-10,  0,  0,-10,-20,-30],
                 [-30,-10, 20, 30, 30, 20,-10,-30],
@@ -91,13 +95,16 @@ class AI:
                 [-30,-10, 20, 30, 30, 20,-10,-30],
                 [-30,-30,  0,  0,  0,  0,-30,-30],
                 [-50,-30,-30,-30,-30,-30,-30,-50]
-            ]
+            ])
         }
+        
+        # Pré-calculer les tables inversées pour les pions noirs
+        self.position_tables["Pawn_black"] = np.flipud(self.position_tables["Pawn"])
         
         # Initialiser la table de transposition
         self.transposition_table = {}
         
-        # Initialiser la base de données d'ouvertures
+        # Initialiser la base de données d'ouvertures avec pandas
         self.opening_book = self.load_opening_book()
         
         # Initialiser la base de données d'apprentissage
@@ -108,10 +115,15 @@ class AI:
         
         # Nombre de nœuds évalués (pour les statistiques)
         self.nodes_evaluated = 0
+        self.evaluation_times = []
+        self.move_times = []
         
         # Journal des chemins de pensée
         self.thought_log = []
         self.max_log_entries = 100  # Limiter le nombre d'entrées pour éviter une utilisation excessive de la mémoire
+        
+        # Nombre de threads pour le parallélisme
+        self.max_workers = 4
         
     def set_color(self, color):
         """Définit la couleur de l'IA."""
@@ -255,7 +267,9 @@ class AI:
         return fen
     
     def get_minimax_move(self, board, depth=5):
-        """Utilise l'algorithme minimax avec élagage alpha-beta et table de transposition pour trouver le meilleur mouvement."""
+        """Utilise l'algorithme minimax avec élagage alpha-beta, table de transposition et parallélisme pour trouver le meilleur mouvement."""
+        start_time = time.time()
+        
         # Réinitialiser la table de transposition pour cette recherche
         self.transposition_table = {}
         
@@ -263,19 +277,94 @@ class AI:
         if not all_moves:
             return None
             
-        best_score = -float('inf')
-        best_move = None
-        alpha = -float('inf')
-        beta = float('inf')
-        
         # Trier les mouvements pour améliorer l'élagage alpha-beta
         sorted_moves = self.order_moves(board, all_moves)
         
-        # Liste pour stocker les mouvements sûrs (qui ne donnent pas de pièces)
+        # Utiliser le parallélisme pour évaluer les mouvements en parallèle
+        if len(sorted_moves) > 1 and depth >= 4:
+            self.log_thought(f"Évaluation parallèle de {len(sorted_moves)} coups possibles")
+            results = self._evaluate_moves_parallel(board, sorted_moves, depth)
+        else:
+            self.log_thought(f"Évaluation séquentielle de {len(sorted_moves)} coups possibles")
+            results = self._evaluate_moves_sequential(board, sorted_moves, depth)
+        
+        # Trouver le meilleur coup et les coups sûrs
+        best_score = -float('inf')
+        best_move = None
         safe_moves = []
         
-        for start_pos, end_pos in sorted_moves:
-            # Simuler le mouvement
+        for score, move, is_safe in results:
+            if score > best_score:
+                best_score = score
+                best_move = move
+            
+            if is_safe:
+                safe_moves.append((score, move))
+        
+        # Si nous avons des coups sûrs, choisir le meilleur parmi eux
+        if safe_moves:
+            safe_moves.sort(reverse=True)  # Trier par score décroissant
+            best_safe_score, best_safe_move = safe_moves[0]
+            
+            # Si le meilleur coup sûr n'est pas trop inférieur au meilleur coup global, le préférer
+            if best_safe_score > best_score - 200:  # Tolérance de 200 points
+                self.log_thought(f"Choix d'un coup plus sûr: {best_safe_score:.1f} vs {best_score:.1f}")
+                best_move = best_safe_move
+        
+        # Enregistrer le mouvement dans l'historique pour l'apprentissage
+        if best_move:
+            self.record_move(board, best_move, best_score)
+        
+        # Enregistrer le temps de calcul
+        end_time = time.time()
+        self.move_times.append(end_time - start_time)
+        
+        # Générer un graphique de performance si nous avons assez de données
+        if len(self.move_times) >= 5:
+            self._generate_performance_chart()
+        
+        return best_move if best_move else (sorted_moves[0] if sorted_moves else None)
+    
+    def _evaluate_moves_parallel(self, board, moves, depth):
+        """Évalue les mouvements en parallèle pour améliorer les performances."""
+        results = []
+        
+        # Fonction pour évaluer un seul mouvement
+        def evaluate_move(move):
+            start_pos, end_pos = move
+            temp_board = board.copy()
+            start_row, start_col = start_pos
+            end_row, end_col = end_pos
+            
+            # Exécuter le mouvement sur le plateau temporaire
+            piece = temp_board.get_piece(start_row, start_col)
+            temp_board.set_piece(end_row, end_col, piece)
+            temp_board.set_piece(start_row, start_col, "")
+            
+            # Vérifier si ce coup met une pièce en danger sans compensation
+            is_safe = self.is_move_safe(board, temp_board, start_pos, end_pos, piece)
+            
+            # Évaluer le score avec minimax
+            alpha = -float('inf')
+            beta = float('inf')
+            score = -self.minimax(temp_board, depth-1, -beta, -alpha, False)
+            
+            return (score, move, is_safe)
+        
+        # Utiliser ThreadPoolExecutor pour le parallélisme
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            results = list(executor.map(evaluate_move, moves))
+        
+        return results
+    
+    def _evaluate_moves_sequential(self, board, moves, depth):
+        """Évalue les mouvements séquentiellement."""
+        results = []
+        alpha = -float('inf')
+        beta = float('inf')
+        
+        for move in moves:
+            start_pos, end_pos = move
             temp_board = board.copy()
             start_row, start_col = start_pos
             end_row, end_col = end_pos
@@ -291,31 +380,61 @@ class AI:
             # Évaluer le score avec minimax
             score = -self.minimax(temp_board, depth-1, -beta, -alpha, False)
             
-            # Si le coup est sûr, l'ajouter à la liste des coups sûrs
-            if is_safe:
-                safe_moves.append((score, (start_pos, end_pos)))
-            
-            if score > best_score:
-                best_score = score
-                best_move = (start_pos, end_pos)
-            
-            alpha = max(alpha, best_score)
+            results.append((score, move, is_safe))
+            alpha = max(alpha, score)
         
-        # Si nous avons des coups sûrs, choisir le meilleur parmi eux
-        if safe_moves and len(safe_moves) > 0:
-            safe_moves.sort(reverse=True)  # Trier par score décroissant
-            best_safe_score, best_safe_move = safe_moves[0]
-            
-            # Si le meilleur coup sûr n'est pas trop inférieur au meilleur coup global, le préférer
-            if best_safe_score > best_score - 200:  # Tolérance de 200 points
-                self.log_thought(f"Choix d'un coup plus sûr: {best_safe_score:.1f} vs {best_score:.1f}")
-                best_move = best_safe_move
+        return results
         
-        # Enregistrer le mouvement dans l'historique pour l'apprentissage
-        if best_move:
-            self.record_move(board, best_move, best_score)
+    def _generate_performance_chart(self):
+        """Génère un graphique de performance pour analyser l'IA."""
+        try:
+            # Créer un dossier pour les graphiques s'il n'existe pas
+            charts_dir = os.path.join(os.path.dirname(__file__), 'charts')
+            os.makedirs(charts_dir, exist_ok=True)
             
-        return best_move if best_move else (sorted_moves[0] if sorted_moves else None)
+            # Créer un DataFrame pandas pour l'analyse
+            performance_data = pd.DataFrame({
+                'Move': range(1, len(self.move_times) + 1),
+                'Move Time (s)': self.move_times,
+                'Evaluation Time (ms)': [t * 1000 for t in self.evaluation_times[-len(self.move_times):]]
+            })
+            
+            # Créer un graphique avec matplotlib
+            plt.figure(figsize=(12, 8))
+            
+            # Graphique du temps de calcul des coups
+            plt.subplot(2, 1, 1)
+            plt.plot(performance_data['Move'], performance_data['Move Time (s)'], 'b-', marker='o')
+            plt.title('Temps de calcul des coups')
+            plt.xlabel('Numéro du coup')
+            plt.ylabel('Temps (secondes)')
+            plt.grid(True)
+            
+            # Graphique du temps d'évaluation moyen
+            plt.subplot(2, 1, 2)
+            plt.plot(performance_data['Move'], performance_data['Evaluation Time (ms)'], 'r-', marker='x')
+            plt.title('Temps d\'évaluation moyen')
+            plt.xlabel('Numéro du coup')
+            plt.ylabel('Temps (millisecondes)')
+            plt.grid(True)
+            
+            plt.tight_layout()
+            
+            # Sauvegarder le graphique
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            chart_path = os.path.join(charts_dir, f'performance_{timestamp}.png')
+            plt.savefig(chart_path)
+            plt.close()
+            
+            self.log_thought(f"Graphique de performance généré: {chart_path}")
+            
+            # Sauvegarder les données brutes en CSV
+            csv_path = os.path.join(charts_dir, f'performance_data_{timestamp}.csv')
+            performance_data.to_csv(csv_path, index=False)
+            
+        except Exception as e:
+            self.log_thought(f"Erreur lors de la génération du graphique: {e}")
+            print(f"Erreur lors de la génération du graphique: {e}")
         
     def is_move_safe(self, original_board, new_board, start_pos, end_pos, moved_piece):
         """Vérifie si un coup est sûr (ne donne pas de pièces gratuitement)."""
@@ -763,8 +882,11 @@ class AI:
         board_str += board.turn[0]  # Ajouter le tour actuel
         return hash(board_str)
     
+    @lru_cache(maxsize=1024)
     def evaluate_board(self, board):
-        """Évalue la position actuelle du plateau avec une fonction d'évaluation avancée."""
+        """Évalue la position actuelle du plateau avec une fonction d'évaluation avancée optimisée avec numpy."""
+        start_time = time.time()
+        
         if board.check_game_status() == "Checkmate":
             # Si c'est échec et mat, retourner une valeur extrême
             if board.turn == self.color:
@@ -775,6 +897,10 @@ class AI:
         if board.check_game_status() == "Stalemate":
             return 0  # Match nul
         
+        # Créer une représentation matricielle du plateau pour accélérer les calculs
+        board_matrix = self._create_board_matrix(board)
+        
+        # Initialiser le score
         score = 0
         piece_count = {"white": 0, "black": 0}
         
@@ -782,7 +908,10 @@ class AI:
         attacked_pieces = self.get_attacked_pieces(board)
         defended_pieces = self.get_defended_pieces(board)
         
-        # Évaluer la valeur matérielle et positionnelle
+        # Évaluer la valeur matérielle et positionnelle avec numpy
+        piece_positions = {}
+        
+        # Collecter les positions des pièces par type et couleur
         for row in range(8):
             for col in range(8):
                 piece = board.get_piece(row, col)
@@ -790,109 +919,124 @@ class AI:
                     piece_type = piece.__class__.__name__
                     piece_count[piece.color] += 1
                     
-                    # Valeur de base de la pièce
-                    piece_value = self.piece_values.get(piece_type, 0)
-                    
-                    # Ajuster le score en fonction de la couleur
-                    if piece.color == self.color:
-                        score += piece_value
-                        
-                        # Valeur positionnelle
-                        position_table = self.position_tables.get(piece_type, [[0]*8 for _ in range(8)])
-                        
-                        # Pour les pions noirs, inverser la table
-                        if piece.color == "black" and piece_type == "Pawn":
-                            position_value = position_table[7-row][col]
-                        # Pour les pions blancs, utiliser la table telle quelle
-                        elif piece.color == "white" and piece_type == "Pawn":
-                            position_value = position_table[row][col]
-                        # Pour les autres pièces, utiliser la table appropriée
-                        else:
-                            position_value = position_table[row][col]
-                        
-                        score += position_value * 0.1
-                    else:
-                        score -= piece_value
-                        
-                        # Valeur positionnelle pour l'adversaire
-                        position_table = self.position_tables.get(piece_type, [[0]*8 for _ in range(8)])
-                        
-                        # Pour les pions noirs, inverser la table
-                        if piece.color == "black" and piece_type == "Pawn":
-                            position_value = position_table[7-row][col]
-                        # Pour les pions blancs, utiliser la table telle quelle
-                        elif piece.color == "white" and piece_type == "Pawn":
-                            position_value = position_table[row][col]
-                        # Pour les autres pièces, utiliser la table appropriée
-                        else:
-                            position_value = position_table[row][col]
-                        
-                        score -= position_value * 0.1
+                    key = f"{piece_type}_{piece.color}"
+                    if key not in piece_positions:
+                        piece_positions[key] = []
+                    piece_positions[key].append((row, col))
+        
+        # Calculer les scores matériels et positionnels en une seule passe
+        for key, positions in piece_positions.items():
+            piece_type, color = key.split('_')
+            piece_value = self.piece_values.get(piece_type, 0)
+            
+            # Valeur matérielle
+            if color == self.color:
+                score += piece_value * len(positions)
+            else:
+                score -= piece_value * len(positions)
+            
+            # Valeur positionnelle
+            for row, col in positions:
+                # Sélectionner la table de position appropriée
+                if piece_type == "Pawn" and color == "black":
+                    position_value = self.position_tables["Pawn_black"][row, col]
+                else:
+                    position_table = self.position_tables.get(piece_type, np.zeros((8, 8)))
+                    position_value = position_table[row, col]
+                
+                # Ajuster le score en fonction de la couleur
+                if color == self.color:
+                    score += position_value * 0.1
+                else:
+                    score -= position_value * 0.1
         
         # Déterminer si nous sommes en fin de partie
         is_endgame = (piece_count["white"] + piece_count["black"] <= 10)
         
-        # Bonus pour la mobilité (nombre de mouvements possibles)
+        # Bonus pour la mobilité (nombre de mouvements possibles) - utiliser numpy pour accélérer
         my_moves = len(self.get_all_valid_moves(board, self.color))
         opponent_color = "white" if self.color == "black" else "black"
         opponent_moves = len(self.get_all_valid_moves(board, opponent_color))
-        score += 0.1 * (my_moves - opponent_moves)
+        mobility_score = 0.1 * (my_moves - opponent_moves)
+        score += mobility_score
         
-        # Bonus pour le contrôle du centre
+        # Bonus pour le contrôle du centre - utiliser numpy pour accélérer
         center_squares = [(3, 3), (3, 4), (4, 3), (4, 4)]
+        center_control = 0
         for row, col in center_squares:
             piece = board.get_piece(row, col)
             if piece and hasattr(piece, 'color'):
                 if piece.color == self.color:
-                    score += 10
+                    center_control += 1
                 else:
-                    score -= 10
+                    center_control -= 1
+        score += center_control * 10
         
-        # Pénalité pour les pions doublés
+        # Pénalité pour les pions doublés - utiliser numpy pour accélérer
+        doubled_pawns_score = 0
         for col in range(8):
-            white_pawns = 0
-            black_pawns = 0
-            for row in range(8):
-                piece = board.get_piece(row, col)
-                if piece and hasattr(piece, '__class__') and piece.__class__.__name__ == 'Pawn':
-                    if piece.color == "white":
-                        white_pawns += 1
-                    else:
-                        black_pawns += 1
+            # Compter les pions par colonne avec numpy
+            white_pawns = sum(1 for row in range(8) if board.get_piece(row, col) and 
+                             hasattr(board.get_piece(row, col), '__class__') and 
+                             board.get_piece(row, col).__class__.__name__ == 'Pawn' and 
+                             board.get_piece(row, col).color == "white")
+            
+            black_pawns = sum(1 for row in range(8) if board.get_piece(row, col) and 
+                             hasattr(board.get_piece(row, col), '__class__') and 
+                             board.get_piece(row, col).__class__.__name__ == 'Pawn' and 
+                             board.get_piece(row, col).color == "black")
             
             # Pénaliser les pions doublés
             if white_pawns > 1:
                 if self.color == "white":
-                    score -= (white_pawns - 1) * 20
+                    doubled_pawns_score -= (white_pawns - 1) * 20
                 else:
-                    score += (white_pawns - 1) * 20
+                    doubled_pawns_score += (white_pawns - 1) * 20
             
             if black_pawns > 1:
                 if self.color == "black":
-                    score -= (black_pawns - 1) * 20
+                    doubled_pawns_score -= (black_pawns - 1) * 20
                 else:
-                    score += (black_pawns - 1) * 20
+                    doubled_pawns_score += (black_pawns - 1) * 20
         
-        # Bonus pour les pions passés
-        for col in range(8):
-            for row in range(8):
+        score += doubled_pawns_score
+        
+        # Bonus pour les pions passés - optimisé
+        passed_pawns_score = 0
+        
+        # Créer des masques pour les pions blancs et noirs
+        white_pawn_mask = np.zeros((8, 8), dtype=bool)
+        black_pawn_mask = np.zeros((8, 8), dtype=bool)
+        
+        for row in range(8):
+            for col in range(8):
+                piece = board.get_piece(row, col)
+                if piece and hasattr(piece, '__class__') and piece.__class__.__name__ == 'Pawn':
+                    if piece.color == "white":
+                        white_pawn_mask[row, col] = True
+                    else:
+                        black_pawn_mask[row, col] = True
+        
+        # Vérifier les pions passés
+        for row in range(8):
+            for col in range(8):
                 piece = board.get_piece(row, col)
                 if piece and hasattr(piece, '__class__') and piece.__class__.__name__ == 'Pawn':
                     is_passed = True
                     
                     # Vérifier s'il y a des pions adverses qui peuvent bloquer
                     if piece.color == "white":
-                        for r in range(row-1, -1, -1):  # Vérifier devant le pion blanc
+                        # Vérifier devant le pion blanc
+                        for r in range(row-1, -1, -1):
                             for c in range(max(0, col-1), min(8, col+2)):
-                                p = board.get_piece(r, c)
-                                if p and hasattr(p, '__class__') and p.__class__.__name__ == 'Pawn' and p.color == "black":
+                                if black_pawn_mask[r, c]:
                                     is_passed = False
                                     break
                     else:  # piece.color == "black"
-                        for r in range(row+1, 8):  # Vérifier devant le pion noir
+                        # Vérifier devant le pion noir
+                        for r in range(row+1, 8):
                             for c in range(max(0, col-1), min(8, col+2)):
-                                p = board.get_piece(r, c)
-                                if p and hasattr(p, '__class__') and p.__class__.__name__ == 'Pawn' and p.color == "white":
+                                if white_pawn_mask[r, c]:
                                     is_passed = False
                                     break
                     
@@ -901,12 +1045,16 @@ class AI:
                         if piece.color == self.color:
                             # Plus le pion est avancé, plus le bonus est important
                             rank_bonus = 7 - row if piece.color == "white" else row
-                            score += (20 + rank_bonus * 10) * (2 if is_endgame else 1)
+                            passed_pawns_score += (20 + rank_bonus * 10) * (2 if is_endgame else 1)
                         else:
                             rank_bonus = 7 - row if piece.color == "white" else row
-                            score -= (20 + rank_bonus * 10) * (2 if is_endgame else 1)
+                            passed_pawns_score -= (20 + rank_bonus * 10) * (2 if is_endgame else 1)
         
-        # Bonus pour la sécurité du roi
+        score += passed_pawns_score
+        
+        # Bonus pour la sécurité du roi - optimisé
+        king_safety_score = 0
+        
         for color in ["white", "black"]:
             king_pos = board.find_king(color)
             if king_pos:
@@ -915,52 +1063,46 @@ class AI:
                 # Pénalité pour le roi exposé
                 if is_endgame:
                     # En fin de partie, le roi doit être actif
+                    # Distance au centre calculée avec numpy
+                    center_distance = abs(3.5 - king_row) + abs(3.5 - king_col)
                     if color == self.color:
-                        # Distance au centre
-                        center_distance = abs(3.5 - king_row) + abs(3.5 - king_col)
-                        score -= center_distance * 10
+                        king_safety_score -= center_distance * 10
                     else:
-                        center_distance = abs(3.5 - king_row) + abs(3.5 - king_col)
-                        score += center_distance * 10
+                        king_safety_score += center_distance * 10
                 else:
                     # En milieu de partie, le roi doit être protégé
+                    # Créer un masque 3x3 autour du roi
+                    king_area = np.zeros((3, 3), dtype=bool)
+                    for dr in range(3):
+                        for dc in range(3):
+                            r, c = king_row + dr - 1, king_col + dc - 1
+                            if 0 <= r < 8 and 0 <= c < 8:
+                                piece = board.get_piece(r, c)
+                                if piece and hasattr(piece, 'color') and piece.color == color:
+                                    king_area[dr, dc] = True
+                    
+                    # Compter les pièces amies autour du roi (exclure le roi lui-même)
+                    king_safety = np.sum(king_area) - 1  # -1 pour exclure le roi
+                    
                     if color == self.color:
-                        # Vérifier les cases autour du roi
-                        king_safety = 0
-                        for dr in [-1, 0, 1]:
-                            for dc in [-1, 0, 1]:
-                                if dr == 0 and dc == 0:
-                                    continue
-                                r, c = king_row + dr, king_col + dc
-                                if 0 <= r < 8 and 0 <= c < 8:
-                                    piece = board.get_piece(r, c)
-                                    if piece and hasattr(piece, 'color') and piece.color == color:
-                                        king_safety += 1
-                        
-                        score += king_safety * 10
+                        king_safety_score += king_safety * 10
                     else:
-                        # Vérifier les cases autour du roi adverse
-                        king_safety = 0
-                        for dr in [-1, 0, 1]:
-                            for dc in [-1, 0, 1]:
-                                if dr == 0 and dc == 0:
-                                    continue
-                                r, c = king_row + dr, king_col + dc
-                                if 0 <= r < 8 and 0 <= c < 8:
-                                    piece = board.get_piece(r, c)
-                                    if piece and hasattr(piece, 'color') and piece.color == color:
-                                        king_safety += 1
-                        
-                        score -= king_safety * 10
+                        king_safety_score -= king_safety * 10
+        
+        score += king_safety_score
         
         # Vérifier si le roi est en échec
+        check_score = 0
         if board.is_king_in_check(self.color):
-            score -= 50  # Pénalité pour être en échec
+            check_score -= 50  # Pénalité pour être en échec
         
         if board.is_king_in_check(opponent_color):
-            score += 50  # Bonus pour mettre l'adversaire en échec
-            
-        # Pénaliser les pièces attaquées et non défendues
+            check_score += 50  # Bonus pour mettre l'adversaire en échec
+        
+        score += check_score
+        
+        # Pénaliser les pièces attaquées et non défendues - optimisé
+        exchange_score = 0
         for (row, col), attackers in attacked_pieces.items():
             piece = board.get_piece(row, col)
             if piece and hasattr(piece, '__class__'):
@@ -972,24 +1114,51 @@ class AI:
                 
                 # Pénalité plus forte pour les pièces non défendues
                 if not is_defended:
-                    score -= piece_value * 0.3  # Pénalité sévère pour les pièces en danger
+                    exchange_score -= piece_value * 0.3  # Pénalité sévère pour les pièces en danger
                     self.log_thought(f"Pièce en danger non défendue: {piece_type} en {chr(col + ord('a'))}{8-row}")
                 else:
                     # Évaluer l'échange
-                    lowest_attacker_value = float('inf')
-                    for attacker_row, attacker_col in attackers:
-                        attacker = board.get_piece(attacker_row, attacker_col)
-                        if attacker and hasattr(attacker, '__class__'):
-                            attacker_type = attacker.__class__.__name__
-                            attacker_value = self.piece_values.get(attacker_type, 0)
-                            lowest_attacker_value = min(lowest_attacker_value, attacker_value)
+                    attacker_values = [self.piece_values.get(board.get_piece(r, c).__class__.__name__, 0) 
+                                      for r, c in attackers 
+                                      if board.get_piece(r, c) and hasattr(board.get_piece(r, c), '__class__')]
                     
-                    # Si l'échange est défavorable
-                    if lowest_attacker_value < piece_value:
-                        score -= (piece_value - lowest_attacker_value) * 0.2
-                        self.log_thought(f"Échange défavorable possible: {piece_type} contre {lowest_attacker_value}")
+                    if attacker_values:
+                        lowest_attacker_value = min(attacker_values)
+                        
+                        # Si l'échange est défavorable
+                        if lowest_attacker_value < piece_value:
+                            exchange_score -= (piece_value - lowest_attacker_value) * 0.2
+                            self.log_thought(f"Échange défavorable possible: {piece_type} contre {lowest_attacker_value}")
+        
+        score += exchange_score
+        
+        # Enregistrer le temps d'évaluation
+        end_time = time.time()
+        self.evaluation_times.append(end_time - start_time)
         
         return score
+        
+    def _create_board_matrix(self, board):
+        """Crée une représentation matricielle du plateau pour les calculs numpy."""
+        # Créer une matrice 8x8x12 (8x8 cases, 12 canaux pour les différents types de pièces)
+        # 6 types de pièces * 2 couleurs = 12 canaux
+        matrix = np.zeros((8, 8, 12), dtype=np.int8)
+        
+        piece_types = ["Pawn", "Knight", "Bishop", "Rook", "Queen", "King"]
+        colors = ["white", "black"]
+        
+        for row in range(8):
+            for col in range(8):
+                piece = board.get_piece(row, col)
+                if piece and hasattr(piece, '__class__'):
+                    piece_type = piece.__class__.__name__
+                    if piece_type in piece_types and hasattr(piece, 'color') and piece.color in colors:
+                        type_idx = piece_types.index(piece_type)
+                        color_idx = colors.index(piece.color)
+                        channel_idx = type_idx + 6 * color_idx
+                        matrix[row, col, channel_idx] = 1
+        
+        return matrix
     
     def get_all_valid_moves(self, board, color):
         """Récupère tous les mouvements valides pour une couleur donnée."""
@@ -1062,50 +1231,262 @@ class AI:
         self.game_history = []
     
     def load_opening_book(self):
-        """Charge la base de données d'ouvertures."""
+        """Charge la base de données d'ouvertures en utilisant pandas."""
         try:
-            opening_book_path = os.path.join(os.path.dirname(__file__), 'opening_book.json')
-            if os.path.exists(opening_book_path):
-                with open(opening_book_path, 'r') as f:
-                    return json.load(f)
+            # Vérifier si le fichier CSV existe
+            csv_path = os.path.join(os.path.dirname(__file__), 'opening_book.csv')
+            if os.path.exists(csv_path):
+                # Charger avec pandas
+                df = pd.read_csv(csv_path)
+                
+                # Convertir en dictionnaire
+                opening_book = {}
+                for _, row in df.iterrows():
+                    board_state = row['board_state']
+                    move = row['move']
+                    score = row['score']
+                    
+                    if board_state not in opening_book:
+                        opening_book[board_state] = {}
+                    
+                    opening_book[board_state][move] = score
+                
+                self.log_thought(f"Base de données d'ouvertures chargée: {len(df)} entrées")
+                return opening_book
+            
+            # Si le fichier CSV n'existe pas, vérifier le fichier JSON (pour la compatibilité)
+            json_path = os.path.join(os.path.dirname(__file__), 'opening_book.json')
+            if os.path.exists(json_path):
+                with open(json_path, 'r') as f:
+                    data = json.load(f)
+                
+                # Convertir en CSV pour les prochaines utilisations
+                self._convert_opening_book_to_csv(data)
+                
+                return data
+            
             return {}
         except Exception as e:
+            self.log_thought(f"Erreur lors du chargement de la base de données d'ouvertures: {e}")
             print(f"Erreur lors du chargement de la base de données d'ouvertures: {e}")
             return {}
     
-    def save_opening_book(self):
-        """Sauvegarde la base de données d'ouvertures."""
+    def _convert_opening_book_to_csv(self, opening_book):
+        """Convertit la base de données d'ouvertures en CSV pour une meilleure performance."""
         try:
-            opening_book_path = os.path.join(os.path.dirname(__file__), 'opening_book.json')
-            with open(opening_book_path, 'w') as f:
-                json.dump(self.opening_book, f)
+            # Créer une liste de dictionnaires pour pandas
+            data = []
+            for board_state, moves in opening_book.items():
+                for move, score in moves.items():
+                    data.append({
+                        'board_state': board_state,
+                        'move': move,
+                        'score': score
+                    })
+            
+            # Créer un DataFrame pandas
+            df = pd.DataFrame(data)
+            
+            # Sauvegarder en CSV
+            csv_path = os.path.join(os.path.dirname(__file__), 'opening_book.csv')
+            df.to_csv(csv_path, index=False)
+            
+            self.log_thought(f"Base de données d'ouvertures convertie en CSV: {len(df)} entrées")
         except Exception as e:
+            self.log_thought(f"Erreur lors de la conversion de la base de données d'ouvertures: {e}")
+            print(f"Erreur lors de la conversion de la base de données d'ouvertures: {e}")
+    
+    def save_opening_book(self):
+        """Sauvegarde la base de données d'ouvertures en utilisant pandas."""
+        try:
+            # Convertir le dictionnaire en DataFrame
+            data = []
+            for board_state, moves in self.opening_book.items():
+                for move, score in moves.items():
+                    data.append({
+                        'board_state': board_state,
+                        'move': move,
+                        'score': score
+                    })
+            
+            # Créer un DataFrame pandas
+            df = pd.DataFrame(data)
+            
+            # Sauvegarder en CSV
+            csv_path = os.path.join(os.path.dirname(__file__), 'opening_book.csv')
+            df.to_csv(csv_path, index=False)
+            
+            self.log_thought(f"Base de données d'ouvertures sauvegardée: {len(df)} entrées")
+        except Exception as e:
+            self.log_thought(f"Erreur lors de la sauvegarde de la base de données d'ouvertures: {e}")
             print(f"Erreur lors de la sauvegarde de la base de données d'ouvertures: {e}")
     
     def load_learning_data(self):
-        """Charge les données d'apprentissage."""
+        """Charge les données d'apprentissage en utilisant pandas."""
         try:
-            learning_data_path = os.path.join(os.path.dirname(__file__), 'learning_data.pkl')
-            if os.path.exists(learning_data_path):
-                with open(learning_data_path, 'rb') as f:
-                    return pickle.load(f)
+            # Vérifier si le fichier CSV existe
+            csv_path = os.path.join(os.path.dirname(__file__), 'learning_data.csv')
+            if os.path.exists(csv_path):
+                # Charger avec pandas
+                df = pd.read_csv(csv_path)
+                
+                # Convertir en dictionnaire
+                learning_data = {}
+                for _, row in df.iterrows():
+                    move_key = row['move_key']
+                    value = row['value']
+                    learning_data[move_key] = value
+                
+                self.log_thought(f"Données d'apprentissage chargées: {len(df)} entrées")
+                return learning_data
+            
+            # Si le fichier CSV n'existe pas, vérifier le fichier PKL (pour la compatibilité)
+            pkl_path = os.path.join(os.path.dirname(__file__), 'learning_data.pkl')
+            if os.path.exists(pkl_path):
+                with open(pkl_path, 'rb') as f:
+                    data = pickle.load(f)
+                
+                # Convertir en CSV pour les prochaines utilisations
+                self._convert_learning_data_to_csv(data)
+                
+                return data
+            
             return {}
         except Exception as e:
+            self.log_thought(f"Erreur lors du chargement des données d'apprentissage: {e}")
             print(f"Erreur lors du chargement des données d'apprentissage: {e}")
             return {}
     
-    def save_learning_data(self):
-        """Sauvegarde les données d'apprentissage."""
+    def _convert_learning_data_to_csv(self, learning_data):
+        """Convertit les données d'apprentissage en CSV pour une meilleure performance."""
         try:
-            learning_data_path = os.path.join(os.path.dirname(__file__), 'learning_data.pkl')
-            with open(learning_data_path, 'wb') as f:
-                pickle.dump(self.learning_data, f)
+            # Créer une liste de dictionnaires pour pandas
+            data = []
+            for move_key, value in learning_data.items():
+                data.append({
+                    'move_key': move_key,
+                    'value': value
+                })
+            
+            # Créer un DataFrame pandas
+            df = pd.DataFrame(data)
+            
+            # Sauvegarder en CSV
+            csv_path = os.path.join(os.path.dirname(__file__), 'learning_data.csv')
+            df.to_csv(csv_path, index=False)
+            
+            self.log_thought(f"Données d'apprentissage converties en CSV: {len(df)} entrées")
         except Exception as e:
+            self.log_thought(f"Erreur lors de la conversion des données d'apprentissage: {e}")
+            print(f"Erreur lors de la conversion des données d'apprentissage: {e}")
+    
+    def save_learning_data(self):
+        """Sauvegarde les données d'apprentissage en utilisant pandas."""
+        try:
+            # Convertir le dictionnaire en DataFrame
+            data = []
+            for move_key, value in self.learning_data.items():
+                data.append({
+                    'move_key': move_key,
+                    'value': value
+                })
+            
+            # Créer un DataFrame pandas
+            df = pd.DataFrame(data)
+            
+            # Sauvegarder en CSV
+            csv_path = os.path.join(os.path.dirname(__file__), 'learning_data.csv')
+            df.to_csv(csv_path, index=False)
+            
+            self.log_thought(f"Données d'apprentissage sauvegardées: {len(df)} entrées")
+        except Exception as e:
+            self.log_thought(f"Erreur lors de la sauvegarde des données d'apprentissage: {e}")
             print(f"Erreur lors de la sauvegarde des données d'apprentissage: {e}")
             
     def get_thought_log(self):
         """Retourne le journal des chemins de pensée."""
         return self.thought_log
+    
+    def analyze_performance(self):
+        """Analyse les performances de l'IA et génère des visualisations."""
+        if not self.move_times or not self.evaluation_times:
+            self.log_thought("Pas assez de données pour analyser les performances")
+            return None
+        
+        try:
+            # Créer un dossier pour les graphiques s'il n'existe pas
+            charts_dir = os.path.join(os.path.dirname(__file__), 'charts')
+            os.makedirs(charts_dir, exist_ok=True)
+            
+            # Créer un DataFrame pandas pour l'analyse
+            performance_data = pd.DataFrame({
+                'Move': range(1, len(self.move_times) + 1),
+                'Move Time (s)': self.move_times,
+                'Evaluation Time (ms)': [t * 1000 for t in self.evaluation_times[:len(self.move_times)]],
+                'Nodes Evaluated': [self.nodes_evaluated / len(self.move_times)] * len(self.move_times)
+            })
+            
+            # Statistiques descriptives
+            stats = performance_data.describe()
+            
+            # Créer un graphique avec matplotlib
+            plt.figure(figsize=(15, 10))
+            
+            # Graphique du temps de calcul des coups
+            plt.subplot(2, 2, 1)
+            plt.plot(performance_data['Move'], performance_data['Move Time (s)'], 'b-', marker='o')
+            plt.title('Temps de calcul des coups')
+            plt.xlabel('Numéro du coup')
+            plt.ylabel('Temps (secondes)')
+            plt.grid(True)
+            
+            # Graphique du temps d'évaluation moyen
+            plt.subplot(2, 2, 2)
+            plt.plot(performance_data['Move'], performance_data['Evaluation Time (ms)'], 'r-', marker='x')
+            plt.title('Temps d\'évaluation moyen')
+            plt.xlabel('Numéro du coup')
+            plt.ylabel('Temps (millisecondes)')
+            plt.grid(True)
+            
+            # Histogramme des temps de calcul
+            plt.subplot(2, 2, 3)
+            plt.hist(performance_data['Move Time (s)'], bins=10, color='blue', alpha=0.7)
+            plt.title('Distribution des temps de calcul')
+            plt.xlabel('Temps (secondes)')
+            plt.ylabel('Fréquence')
+            plt.grid(True)
+            
+            # Boîte à moustaches
+            plt.subplot(2, 2, 4)
+            performance_data.boxplot(column=['Move Time (s)', 'Evaluation Time (ms)'])
+            plt.title('Statistiques des temps de calcul')
+            plt.ylabel('Temps')
+            plt.grid(True)
+            
+            plt.tight_layout()
+            
+            # Sauvegarder le graphique
+            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            chart_path = os.path.join(charts_dir, f'performance_analysis_{timestamp}.png')
+            plt.savefig(chart_path)
+            plt.close()
+            
+            # Sauvegarder les statistiques en CSV
+            stats_path = os.path.join(charts_dir, f'performance_stats_{timestamp}.csv')
+            stats.to_csv(stats_path)
+            
+            self.log_thought(f"Analyse de performance générée: {chart_path}")
+            
+            return {
+                'chart_path': chart_path,
+                'stats_path': stats_path,
+                'stats': stats
+            }
+            
+        except Exception as e:
+            self.log_thought(f"Erreur lors de l'analyse des performances: {e}")
+            print(f"Erreur lors de l'analyse des performances: {e}")
+            return None
 
 # Test rapide
 if __name__ == "__main__":
@@ -1113,6 +1494,23 @@ if __name__ == "__main__":
     
     board = Board()
     ai = AI(color="black", difficulty="hard")
+    
+    print("Test de l'IA optimisée avec numpy, pandas et matplotlib")
+    print("=" * 50)
+    
+    # Mesurer le temps d'exécution
+    start_time = time.time()
     best_move = ai.get_best_move(board)
+    end_time = time.time()
+    
     print(f"Meilleur mouvement: {best_move}")
     print(f"Nœuds évalués: {ai.nodes_evaluated}")
+    print(f"Temps d'exécution: {end_time - start_time:.2f} secondes")
+    
+    # Afficher les statistiques
+    print("\nStatistiques de l'IA:")
+    print(f"Temps moyen d'évaluation: {np.mean(ai.evaluation_times) * 1000:.2f} ms")
+    print(f"Temps moyen de calcul d'un coup: {np.mean(ai.move_times):.2f} secondes")
+    
+    # Générer une analyse de performance
+    ai.analyze_performance()

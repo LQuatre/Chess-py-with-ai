@@ -60,18 +60,113 @@
           Jouez aux échecs, visualisez le plateau et suivez vos mouvements!
         </p>
 
+        <div class="card mb-4">
+          <div class="card-header">
+            <h3>Choisissez votre mode de jeu</h3>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                  <div class="card-body text-center">
+                    <h5 class="card-title">Humain vs Humain</h5>
+                    <p class="card-text">Jouez contre un autre joueur</p>
+                    <a
+                      href="/new-game?type=human_vs_human"
+                      class="btn btn-primary"
+                      >Commencer</a
+                    >
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                  <div class="card-body text-center">
+                    <h5 class="card-title">Humain vs IA</h5>
+                    <p class="card-text">
+                      Affrontez l'intelligence artificielle
+                    </p>
+                    <div class="mb-3">
+                      <label class="form-label">Difficulté:</label>
+                      <select id="ai-difficulty" class="form-select">
+                        <option value="easy">Facile</option>
+                        <option value="medium" selected>Moyen</option>
+                        <option value="hard">Difficile</option>
+                      </select>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label">Votre couleur:</label>
+                      <select id="human-color" class="form-select">
+                        <option value="white" selected>Blanc</option>
+                        <option value="black">Noir</option>
+                      </select>
+                    </div>
+                    <button onclick="startHumanVsAI()" class="btn btn-primary">
+                      Commencer
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                  <div class="card-body text-center">
+                    <h5 class="card-title">IA vs IA</h5>
+                    <p class="card-text">Regardez deux IA s'affronter</p>
+                    <div class="mb-3">
+                      <label class="form-label">IA Blanche:</label>
+                      <select id="white-ai-difficulty" class="form-select">
+                        <option value="easy">Facile</option>
+                        <option value="medium" selected>Moyen</option>
+                        <option value="hard">Difficile</option>
+                      </select>
+                    </div>
+                    <div class="mb-3">
+                      <label class="form-label">IA Noire:</label>
+                      <select id="black-ai-difficulty" class="form-select">
+                        <option value="easy">Facile</option>
+                        <option value="medium" selected>Moyen</option>
+                        <option value="hard">Difficile</option>
+                      </select>
+                    </div>
+                    <button onclick="startAIVsAI()" class="btn btn-primary">
+                      Commencer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="d-grid gap-3 d-md-block">
-          <a href="/new-game" class="btn btn-primary btn-lg">Nouvelle partie</a>
           <a href="/available-games" class="btn btn-success btn-lg"
-            >Rejoindre une partie</a
+            >Rejoindre une partie existante</a
           >
-          <a href="/board/view" class="btn btn-outline-secondary btn-lg"
-            >Voir le Plateau</a
+          <a href="/saved-games" class="btn btn-info btn-lg"
+            >Voir les parties sauvegardées</a
           >
-          <a href="/board" class="btn btn-outline-info btn-lg"
-            >API du Plateau</a
+          <a href="/ai-stats" class="btn btn-warning btn-lg"
+            >Statistiques de l'IA</a
           >
         </div>
+
+        <script>
+          function startHumanVsAI() {
+            const difficulty = document.getElementById("ai-difficulty").value;
+            const color = document.getElementById("human-color").value;
+            window.location.href = `/new-game?type=human_vs_ai&difficulty=${difficulty}&color=${color}`;
+          }
+
+          function startAIVsAI() {
+            const whiteDifficulty = document.getElementById(
+              "white-ai-difficulty"
+            ).value;
+            const blackDifficulty = document.getElementById(
+              "black-ai-difficulty"
+            ).value;
+            window.location.href = `/new-game?type=ai_vs_ai&white_difficulty=${whiteDifficulty}&black_difficulty=${blackDifficulty}`;
+          }
+        </script>
 
         {% if error %}
         <div class="alert alert-danger mt-4">{{ error }}</div>

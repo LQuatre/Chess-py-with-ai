@@ -56,9 +56,23 @@ class Board:
         return self.turn
     
     def copy(self):
-        """Crée une copie du plateau."""
+        """Crée une copie profonde du plateau."""
+        import copy
         new_board = Board()
-        new_board.set_board([row.copy() for row in self.board])
+        
+        # Copie profonde du plateau
+        board_copy = []
+        for row in self.board:
+            new_row = []
+            for piece in row:
+                if piece == "":
+                    new_row.append("")
+                else:
+                    # Copie profonde de la pièce
+                    new_row.append(copy.deepcopy(piece))
+            board_copy.append(new_row)
+            
+        new_board.set_board(board_copy)
         new_board.turn = self.turn
         new_board.opponent = self.opponent
         new_board.move_count = self.move_count
@@ -203,15 +217,24 @@ class Board:
         df = pd.DataFrame(display_board, index=range(8, 0, -1), columns=list("abcdefgh"))
         return df
 
-    def is_king_in_check(self, color):
-        """Vérifie si le roi de la couleur donnée est en échec."""
+    def is_king_in_check(self, color, return_attacker=False):
+        """
+        Vérifie si le roi de la couleur donnée est en échec.
+        Si return_attacker est True, retourne également la pièce attaquante et sa position.
+        """
         if not color:
-            print("aucune couleur valid")
+            if return_attacker:
+                return False, None, None
             return False
+            
         king_position = self.find_king(color)
         if not king_position:
+            if return_attacker:
+                return False, None, None
             return False
-        return self.is_square_attacked(king_position, color)
+            
+        # Vérifier si la case du roi est attaquée
+        return self.is_square_attacked(king_position, color, return_attacker)
 
     def find_king(self, color):
         """Trouve la position du roi de la couleur donnée."""
@@ -224,8 +247,11 @@ class Board:
                     return (row, col)
         return None
 
-    def is_square_attacked(self, position, color):
-        """Vérifie si une case est attaquée par une pièce de l'adversaire."""
+    def is_square_attacked(self, position, color, return_attacker=False):
+        """
+        Vérifie si une case est attaquée par une pièce de l'adversaire.
+        Si return_attacker est True, retourne la pièce attaquante et sa position.
+        """
         opponent_color = "white" if color == "black" else "black"
         target_row, target_col = position
         
@@ -236,6 +262,8 @@ class Board:
             if 0 <= r < 8 and 0 <= c < 8:
                 piece = self.board[r][c]
                 if piece != "" and piece.color == opponent_color and isinstance(piece, Pawn):
+                    if return_attacker:
+                        return True, (r, c), piece
                     return True
         
         # Vérifier les attaques des cavaliers
@@ -245,6 +273,8 @@ class Board:
             if 0 <= r < 8 and 0 <= c < 8:
                 piece = self.board[r][c]
                 if piece != "" and piece.color == opponent_color and isinstance(piece, Knight):
+                    if return_attacker:
+                        return True, (r, c), piece
                     return True
         
         # Vérifier les attaques en ligne (tour et dame)
@@ -260,6 +290,8 @@ class Board:
                 if piece == "":
                     continue
                 if piece.color == opponent_color and (isinstance(piece, Rook) or isinstance(piece, Queen)):
+                    if return_attacker:
+                        return True, (r, c), piece
                     return True
                 break  # Une pièce bloque la ligne
         
@@ -276,6 +308,8 @@ class Board:
                 if piece == "":
                     continue
                 if piece.color == opponent_color and (isinstance(piece, Bishop) or isinstance(piece, Queen)):
+                    if return_attacker:
+                        return True, (r, c), piece
                     return True
                 break  # Une pièce bloque la diagonale
         
@@ -286,10 +320,49 @@ class Board:
             if 0 <= r < 8 and 0 <= c < 8:
                 piece = self.board[r][c]
                 if piece != "" and piece.color == opponent_color and isinstance(piece, King):
+                    if return_attacker:
+                        return True, (r, c), piece
                     return True
-        
+                    
+        if return_attacker:
+            return False, None, None
         return False
     
+    def get_path_between(self, start_pos, end_pos):
+        """
+        Retourne la liste des positions entre deux cases (exclusivement).
+        Utile pour déterminer si une pièce peut s'interposer entre le roi et une pièce attaquante.
+        """
+        start_row, start_col = start_pos
+        end_row, end_col = end_pos
+        path = []
+        
+        # Si les positions ne sont pas alignées (ni en ligne droite ni en diagonale)
+        if start_row != end_row and start_col != end_col and abs(start_row - end_row) != abs(start_col - end_col):
+            return path  # Chemin vide
+        
+        # Déterminer la direction
+        row_step = 0 if start_row == end_row else (1 if start_row < end_row else -1)
+        col_step = 0 if start_col == end_col else (1 if start_col < end_col else -1)
+        
+        # Parcourir le chemin
+        current_row, current_col = start_row + row_step, start_col + col_step
+        while (current_row, current_col) != (end_row, end_col):
+            path.append((current_row, current_col))
+            current_row += row_step
+            current_col += col_step
+            
+        return path
+        
+        # Parcourir le chemin
+        current_row, current_col = start_row + row_step, start_col + col_step
+        while (current_row, current_col) != (end_row, end_col):
+            path.append((current_row, current_col))
+            current_row += row_step
+            current_col += col_step
+        
+        return path
+        
     def is_king_surrounded(self, color):
         """Vérifie si le roi de la couleur donnée est entouré par des pièces adverses et que ces cases ne sont pas attaquées."""
         king_position = self.find_king(color)

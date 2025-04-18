@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Partie Sauvegardée</title>
+    <!-- Bootstrap CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --white-color: #f0d9b5;
+        --black-color: #b58863;
+        --hover-color: #e0c68c;
+        --active-color: #f7c36c;
+        --border-color: #6d4c41;
+        --text-color: #2c3e50;
+        --background-color: #f8f9fa;
+      }
+
+      body {
+        font-family: "Poppins", sans-serif;
+        background-color: var(--background-color);
+        color: var(--text-color);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding: 2rem 0;
+      }
+
+      .page-title {
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        color: var(--text-color);
+        position: relative;
+        display: inline-block;
+      }
+
+      .page-title::after {
+        content: "";
+        position: absolute;
+        bottom: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 60px;
+        height: 3px;
+        background-color: var(--black-color);
+        border-radius: 3px;
+      }
+
+      .board-container {
+        padding: 1.5rem;
+        background-color: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+        max-width: 600px;
+        margin: 0 auto;
+      }
+
+      .chess-board {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        grid-template-rows: repeat(8, 1fr);
+        border: 3px solid var(--border-color);
+        border-radius: 4px;
+        max-width: 100%;
+        aspect-ratio: 1;
+        margin: 0 auto;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        overflow: hidden;
+      }
+
+      .chess-board div {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.8rem;
+        font-weight: 500;
+      }
+
+      .white {
+        background-color: var(--white-color);
+      }
+
+      .black {
+        background-color: var(--black-color);
+      }
+
+      .game-info {
+        margin-top: 20px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .history-container {
+        max-height: 300px;
+        overflow-y: auto;
+        margin-top: 20px;
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .history-table {
+        width: 100%;
+      }
+
+      .history-table th,
+      .history-table td {
+        padding: 8px;
+        text-align: center;
+      }
+
+      .history-table tr:nth-child(even) {
+        background-color: #f2f2f2;
+      }
+
+      .btn {
+        margin: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+      }
+
+      .btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      @media (max-width: 576px) {
+        .chess-board div {
+          font-size: 1.2rem;
+        }
+
+        .board-container {
+          padding: 1rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container text-center py-4">
+      <h1 class="page-title">Partie Sauvegardée</h1>
+
+      <div class="game-info mb-3">
+        <h3>Tour: <span id="current-turn">{{ turn }}</span></h3>
+        <div class="row">
+          <div class="col-md-6">
+            <div class="alert alert-light">
+              Joueur Blanc: <strong>{{ white_player_type }}</strong>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="alert alert-dark">
+              Joueur Noir: <strong>{{ black_player_type }}</strong>
+            </div>
+          </div>
+        </div>
+        {% if game_over %}
+        <div class="alert alert-success">
+          Partie terminée! {% if winner %}Gagnant: {{ winner }}{% else %}Match
+          nul{% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="row">
+        <div class="col-md-7">
+          <div class="board-container">
+            <div class="chess-board" id="chessboard">
+              {% for row_index in range(8) %} {% for col_index in range(8) %}
+              <div
+                class="{{ 'white' if ((row_index + col_index) % 2 == 0) else 'black' }}"
+                data-row="{{ row_index }}"
+                data-col="{{ col_index }}"
+                data-position="{{ 'abcdefgh'[col_index] }}{{ 8 - row_index }}"
+              >
+                {% if board and row_index < board|length and col_index <
+                board[row_index]|length %} {{ board[row_index][col_index] }} {%
+                endif %}
+              </div>
+              {% endfor %} {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-md-5">
+          <div class="history-container">
+            <h4>Historique des coups</h4>
+            {% if history %}
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Joueur</th>
+                  <th>De</th>
+                  <th>À</th>
+                  <th>Pièce</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for move in history %}
+                <tr>
+                  <td>{{ move.move_number }}</td>
+                  <td>{{ move.player }}</td>
+                  <td>{{ move.from_pos }}</td>
+                  <td>{{ move.to_pos }}</td>
+                  <td>{{ move.piece }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            {% else %}
+            <div class="alert alert-info">
+              Aucun historique disponible pour cette partie.
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <a href="/saved-games" class="btn btn-secondary"
+          >Retour aux parties sauvegardées</a
+        >
+        <a href="/" class="btn btn-primary">Retour à l'accueil</a>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Erreur - Jeu d'Échecs</title>
+    <link
+      rel="stylesheet"
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+    />
+  </head>
+  <body>
+    <div class="container mt-5">
+      <div class="row">
+        <div class="col-md-8 offset-md-2">
+          <div class="card">
+            <div class="card-header bg-danger text-white">
+              <h3>Une erreur est survenue</h3>
+            </div>
+            <div class="card-body">
+              <p>
+                Nous sommes désolés, mais une erreur s'est produite lors du
+                traitement de votre demande.
+              </p>
+              <p><strong>Détails de l'erreur:</strong> {{ error }}</p>
+              <div class="mt-4">
+                <a href="/" class="btn btn-primary">Retour à l'accueil</a>
+                <a
+                  href="javascript:history.back()"
+                  class="btn btn-secondary ml-2"
+                  >Retour à la page précédente</a
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

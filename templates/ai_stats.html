@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Statistiques de l'IA</title>
+    <!-- Bootstrap CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body {
+        font-family: "Poppins", sans-serif;
+        background-color: #f8f9fa;
+        color: #2c3e50;
+        min-height: 100vh;
+        padding: 2rem 0;
+      }
+
+      .page-title {
+        font-weight: 600;
+        margin-bottom: 1.5rem;
+        color: #2c3e50;
+        position: relative;
+        display: inline-block;
+      }
+
+      .page-title::after {
+        content: "";
+        position: absolute;
+        bottom: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 60px;
+        height: 3px;
+        background-color: #b58863;
+        border-radius: 3px;
+      }
+
+      .card {
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        margin-bottom: 1.5rem;
+      }
+
+      .stat-card {
+        text-align: center;
+        padding: 1.5rem;
+      }
+
+      .stat-value {
+        font-size: 2.5rem;
+        font-weight: 600;
+        color: #b58863;
+      }
+
+      .stat-label {
+        font-size: 1rem;
+        color: #6c757d;
+        margin-top: 0.5rem;
+      }
+
+      .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+      }
+
+      .btn {
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+      }
+
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="text-center mb-4">
+        <h1 class="page-title">Statistiques de l'IA</h1>
+      </div>
+
+      <div class="row mb-4">
+        <div class="col-md-3">
+          <div class="card stat-card">
+            <div class="stat-value">{{ stats.total_games }}</div>
+            <div class="stat-label">Parties totales</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card stat-card">
+            <div class="stat-value">{{ stats.ai_wins }}</div>
+            <div class="stat-label">Victoires de l'IA</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card stat-card">
+            <div class="stat-value">{{ stats.human_wins }}</div>
+            <div class="stat-label">Victoires humaines</div>
+          </div>
+        </div>
+        <div class="col-md-3">
+          <div class="card stat-card">
+            <div class="stat-value">{{ stats.draws }}</div>
+            <div class="stat-label">Matchs nuls</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-4">
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header">
+              <h4>Types de parties</h4>
+            </div>
+            <div class="card-body">
+              <div class="chart-container">
+                <canvas id="gameTypesChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header">
+              <h4>Résultats des parties</h4>
+            </div>
+            <div class="card-body">
+              <div class="chart-container">
+                <canvas id="gameResultsChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row mb-4">
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header">
+              <h4>Statistiques supplémentaires</h4>
+            </div>
+            <div class="card-body">
+              <ul class="list-group list-group-flush">
+                <li
+                  class="list-group-item d-flex justify-content-between align-items-center"
+                >
+                  Nombre moyen de coups par partie
+                  <span class="badge bg-primary rounded-pill"
+                    >{{ "%.1f"|format(stats.avg_moves) }}</span
+                  >
+                </li>
+                <li
+                  class="list-group-item d-flex justify-content-between align-items-center"
+                >
+                  Victoires des blancs
+                  <span class="badge bg-primary rounded-pill"
+                    >{{ stats.white_wins }}</span
+                  >
+                </li>
+                <li
+                  class="list-group-item d-flex justify-content-between align-items-center"
+                >
+                  Victoires des noirs
+                  <span class="badge bg-primary rounded-pill"
+                    >{{ stats.black_wins }}</span
+                  >
+                </li>
+                <li
+                  class="list-group-item d-flex justify-content-between align-items-center"
+                >
+                  Total des coups joués
+                  <span class="badge bg-primary rounded-pill"
+                    >{{ stats.total_moves }}</span
+                  >
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header">
+              <h4>Victoires par couleur</h4>
+            </div>
+            <div class="card-body">
+              <div class="chart-container">
+                <canvas id="colorWinsChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-center mt-4">
+        <a href="/saved-games" class="btn btn-secondary"
+          >Retour aux parties sauvegardées</a
+        >
+        <a href="/" class="btn btn-primary">Retour à l'accueil</a>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        // Graphique des types de parties
+        const gameTypesCtx = document.getElementById("gameTypesChart").getContext("2d");
+        const gameTypesChart = new Chart(gameTypesCtx, {
+          type: "pie",
+          data: {
+            labels: ["IA vs IA", "Humain vs IA", "Humain vs Humain"],
+            datasets: [
+              {
+                data: [stats.ai_vs_ai, stats.human_vs_ai, stats.human_vs_human],
+                backgroundColor: ["#f0d9b5", "#b58863", "#6d4c41"],
+                borderColor: ["#fff", "#fff", "#fff"],
+                borderWidth: 2,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: "bottom",
+              },
+            },
+          },
+        });
+
+        // Graphique des résultats des parties
+        const gameResultsCtx = document.getElementById("gameResultsChart").getContext("2d");
+        const gameResultsChart = new Chart(gameResultsCtx, {
+          type: "doughnut",
+          data: {
+            labels: ["Victoires de l'IA", "Victoires humaines", "Matchs nuls"],
+            datasets: [
+              {
+                data: [{{ stats.ai_wins }}, {{ stats.human_wins }}, {{ stats.draws }}],
+                backgroundColor: ["#4caf50", "#2196f3", "#ffc107"],
+                borderColor: ["#fff", "#fff", "#fff"],
+                borderWidth: 2,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: "bottom",
+              },
+            },
+          },
+        });
+
+        // Graphique des victoires par couleur
+        const colorWinsCtx = document.getElementById("colorWinsChart").getContext("2d");
+        const colorWinsChart = new Chart(colorWinsCtx, {
+          type: "bar",
+          data: {
+            labels: ["Blancs", "Noirs", "Matchs nuls"],
+            datasets: [
+              {
+                label: "Nombre de victoires",
+                data: [{{ stats.white_wins }}, {{ stats.black_wins }}, {{ stats.draws }}],
+                backgroundColor: ["#f0d9b5", "#b58863", "#ffc107"],
+                borderColor: ["#e0c68c", "#a57753", "#e5ac06"],
+                borderWidth: 1,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: {
+                  precision: 0,
+                },
+              },
+            },
+            plugins: {
+              legend: {
+                display: false,
+              },
+            },
+          },
+        });
+      });
+    </script>
+  </body>
+</html>
